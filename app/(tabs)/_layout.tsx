@@ -1,5 +1,6 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { useAuth } from '@/contexts/SimpleAuthContext';
+import { Redirect, Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -10,6 +11,17 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated, isLoading, user } = useAuth();
+
+  useEffect(() => {
+    console.log('📱 Tabs Layout - Auth state:', { isAuthenticated, isLoading, hasUser: !!user });
+  }, [isAuthenticated, isLoading, user]);
+
+  // If user is not authenticated, redirect to auth
+  if (!isLoading && !isAuthenticated) {
+    console.log('🔀 Tabs Layout: User not authenticated, redirecting to auth');
+    return <Redirect href="/(auth)/welcome" />;
+  }
 
   return (
     <Tabs

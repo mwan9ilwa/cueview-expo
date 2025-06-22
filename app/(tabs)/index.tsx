@@ -4,12 +4,12 @@ import { ScrollView, StyleSheet } from 'react-native';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
-import { useApp } from '@/contexts/AppContext';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 
 export default function HomeScreen() {
-  const { state } = useApp();
+  const { user, isLoading } = useAuth();
 
-  if (state.isLoading) {
+  if (isLoading) {
     return <LoadingScreen message="Initializing CueView..." />;
   }
 
@@ -18,8 +18,8 @@ export default function HomeScreen() {
       <ThemedView style={styles.header}>
         <ThemedText type="title">Welcome to CueView</ThemedText>
         <ThemedText type="subtitle">Your TV Show Companion</ThemedText>
-        {state.user && (
-          <ThemedText>Hello, {state.user.username}!</ThemedText>
+        {user && (
+          <ThemedText>Hello, {user.username}!</ThemedText>
         )}
       </ThemedView>
       
@@ -27,11 +27,7 @@ export default function HomeScreen() {
         <ThemedView style={styles.section}>
           <ThemedText type="defaultSemiBold">Continue Watching</ThemedText>
           <ThemedText>Pick up where you left off with your current shows</ThemedText>
-          {state.userShows.length > 0 ? (
-            <ThemedText>You have {state.userShows.length} shows in your library</ThemedText>
-          ) : (
-            <ThemedText>No shows in your library yet. Start by discovering some great shows!</ThemedText>
-          )}
+          <ThemedText style={styles.placeholder}>📺 No shows in progress</ThemedText>
         </ThemedView>
 
         <ThemedView style={styles.section}>
@@ -48,12 +44,12 @@ export default function HomeScreen() {
 
         <ThemedView style={styles.section}>
           <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
-          <ThemedText>• Shows in library: {state.userShows.length}</ThemedText>
+          <ThemedText>• Shows in library: 0</ThemedText>
           <ThemedText>• Episodes watched: Coming soon</ThemedText>
           <ThemedText>• Watch time: Coming soon</ThemedText>
         </ThemedView>
 
-        {!state.user && (
+        {!user && (
           <ThemedView style={styles.section}>
             <ThemedText type="defaultSemiBold">Get Started</ThemedText>
             <ThemedText>Sign in to start tracking your favorite TV shows</ThemedText>
@@ -84,5 +80,9 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: 'rgba(0, 0, 0, 0.05)',
     borderRadius: 12,
+  },
+  placeholder: {
+    fontStyle: 'italic',
+    opacity: 0.7,
   },
 });
