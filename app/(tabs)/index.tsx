@@ -1,75 +1,88 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet } from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
+import LoadingScreen from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useApp } from '@/contexts/AppContext';
 
 export default function HomeScreen() {
+  const { state } = useApp();
+
+  if (state.isLoading) {
+    return <LoadingScreen message="Initializing CueView..." />;
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+    <ScrollView style={styles.container}>
+      <ThemedView style={styles.header}>
+        <ThemedText type="title">Welcome to CueView</ThemedText>
+        <ThemedText type="subtitle">Your TV Show Companion</ThemedText>
+        {state.user && (
+          <ThemedText>Hello, {state.user.username}!</ThemedText>
+        )}
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
+      
+      <ThemedView style={styles.content}>
+        <ThemedView style={styles.section}>
+          <ThemedText type="defaultSemiBold">Continue Watching</ThemedText>
+          <ThemedText>Pick up where you left off with your current shows</ThemedText>
+          {state.userShows.length > 0 ? (
+            <ThemedText>You have {state.userShows.length} shows in your library</ThemedText>
+          ) : (
+            <ThemedText>No shows in your library yet. Start by discovering some great shows!</ThemedText>
+          )}
+        </ThemedView>
+
+        <ThemedView style={styles.section}>
+          <ThemedText type="defaultSemiBold">Upcoming Episodes</ThemedText>
+          <ThemedText>Don&apos;t miss the latest episodes of your favorite shows</ThemedText>
+          <ThemedText>Coming soon: Episode air date tracking</ThemedText>
+        </ThemedView>
+
+        <ThemedView style={styles.section}>
+          <ThemedText type="defaultSemiBold">Trending Now</ThemedText>
+          <ThemedText>Discover what everyone is watching</ThemedText>
+          <ThemedText>Coming soon: Trending shows from TMDb</ThemedText>
+        </ThemedView>
+
+        <ThemedView style={styles.section}>
+          <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
+          <ThemedText>• Shows in library: {state.userShows.length}</ThemedText>
+          <ThemedText>• Episodes watched: Coming soon</ThemedText>
+          <ThemedText>• Watch time: Coming soon</ThemedText>
+        </ThemedView>
+
+        {!state.user && (
+          <ThemedView style={styles.section}>
+            <ThemedText type="defaultSemiBold">Get Started</ThemedText>
+            <ThemedText>Sign in to start tracking your favorite TV shows</ThemedText>
+            <ThemedText>Coming soon: Authentication screens</ThemedText>
+          </ThemedView>
+        )}
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  container: {
+    flex: 1,
+  },
+  header: {
+    padding: 20,
+    paddingTop: 60,
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  content: {
+    flex: 1,
+    padding: 20,
+    gap: 20,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  section: {
+    gap: 8,
+    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 12,
   },
 });
