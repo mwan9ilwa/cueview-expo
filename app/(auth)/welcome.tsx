@@ -9,7 +9,7 @@ export default function WelcomeScreen() {
     <ScrollView style={styles.container}>
       <ThemedView style={styles.content}>
         <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Welcome to CueView</ThemedText>
+          <ThemedText type="title" style={styles.title}>CueView</ThemedText>
           <ThemedText type="subtitle" style={styles.subtitle}>
             Your personal TV show companion
           </ThemedText>

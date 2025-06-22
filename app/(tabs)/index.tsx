@@ -1,5 +1,6 @@
+import { router } from 'expo-router';
 import React from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
 
 import LoadingScreen from '@/components/LoadingScreen';
 import ShowList from '@/components/ShowList';
@@ -7,10 +8,12 @@ import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useHomeScreenData } from '@/hooks/useHomeScreenData';
+import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { TMDbShow } from '@/services/tmdb';
 
 export default function HomeScreen() {
   const { user, isLoading: authLoading } = useAuth();
+  const { stats } = useUserLibrary();
   const {
     trendingShows,
     popularShows,
@@ -27,8 +30,8 @@ export default function HomeScreen() {
   }
 
   const handleShowPress = (show: TMDbShow) => {
-    // TODO: Navigate to show details screen
-    Alert.alert('Show Details', `You tapped on "${show.name}". Show details screen coming soon!`);
+    // Navigate to show details screen
+    router.push(`/show/${show.id}`);
   };
 
   const onRefresh = async () => {
@@ -45,9 +48,9 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.header}>
-        <ThemedText type="title">Welcome to CueView</ThemedText>
+        <ThemedText type="title">CueView</ThemedText>
         {user && (
-          <ThemedText type="subtitle">Hello, {user.username}! 👋</ThemedText>
+          <ThemedText type="subtitle">Hello, {user.username}!</ThemedText>
         )}
       </ThemedView>
 
@@ -91,9 +94,9 @@ export default function HomeScreen() {
       {/* Quick Stats */}
       <ThemedView style={styles.statsSection}>
         <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
-        <ThemedText>• Shows in library: {continueWatching.length}</ThemedText>
-        <ThemedText>• Episodes watched: Coming soon</ThemedText>
-        <ThemedText>• Watch time: Coming soon</ThemedText>
+        <ThemedText>• Shows in library: {stats.totalShows}</ThemedText>
+        <ThemedText>• Episodes watched: {stats.totalEpisodesWatched}</ThemedText>
+        <ThemedText>• Average rating: {stats.averageRating > 0 ? `⭐ ${stats.averageRating}` : 'Not rated yet'}</ThemedText>
       </ThemedView>
 
       <ThemedView style={styles.bottomPadding} />

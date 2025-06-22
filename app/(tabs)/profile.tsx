@@ -33,7 +33,7 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       <ThemedView style={styles.header}>
         <ThemedText type="title">Profile</ThemedText>
-        {user && <ThemedText>Welcome, {user.username}!</ThemedText>}
+        {/* {user && <ThemedText>Welcome, {user.username}!</ThemedText>} */}
       </ThemedView>
       
       <ThemedView style={styles.content}>
@@ -57,8 +57,6 @@ export default function ProfileScreen() {
           <ThemedText>• Theme selection (Light/Dark)</ThemedText>
           <ThemedText>• Notification preferences</ThemedText>
           <ThemedText>• Account settings</ThemedText>
-          <ThemedText>• Statistics and insights</ThemedText>
-          <ThemedText>• Data export/import</ThemedText>
         </ThemedView>
 
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
