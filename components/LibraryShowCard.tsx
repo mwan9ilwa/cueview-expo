@@ -1,9 +1,19 @@
+import { formatCountdown, getNextEpisodeInfo, getShowStatusInfo } from '@/services/tmdb';
 import { UserShowWithDetails } from '@/types';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import EpisodeProgressModal from './EpisodeProgressModal';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
+
+interface EpisodeInfo {
+  type: string;
+  season: number;
+  episode: number;
+  name: string;
+  airDate: string;
+  overview?: string;
+}
 
 interface LibraryShowCardProps {
   userShow: UserShowWithDetails;
@@ -12,13 +22,29 @@ interface LibraryShowCardProps {
   showProgress?: boolean;
 }
 
-export default function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: LibraryShowCardProps) {
+function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: LibraryShowCardProps) {
   const { showDetails } = userShow;
   const [showProgressModal, setShowProgressModal] = useState(false);
+  const [nextEpisode, setNextEpisode] = useState<EpisodeInfo | null>(null);
+  const [loadingNext, setLoadingNext] = useState(false);
   
   const posterUrl = showDetails?.poster_path
     ? `https://image.tmdb.org/t/p/w300${showDetails.poster_path}`
     : null;
+
+  // Load next episode info
+  useEffect(() => {
+    if (showDetails && userShow.status === 'watching') {
+      setLoadingNext(true);
+      getNextEpisodeInfo(userShow.showId, userShow.currentSeason, userShow.currentEpisode)
+        .then((result) => setNextEpisode(result))
+        .catch(error => {
+          console.error('Error loading next episode:', error);
+          setNextEpisode(null);
+        })
+        .finally(() => setLoadingNext(false));
+    }
+  }, [showDetails, userShow.showId, userShow.currentSeason, userShow.currentEpisode, userShow.status]);
 
   const formatDate = (dateString: string) => {
     try {
@@ -44,6 +70,8 @@ export default function LibraryShowCard({ userShow, onPress, onUpdateProgress, s
       default: return '#999';
     }
   };
+
+  const showStatusInfo = showDetails ? getShowStatusInfo(showDetails) : null;
 
   return (
     <TouchableOpacity
@@ -84,7 +112,35 @@ export default function LibraryShowCard({ userShow, onPress, onUpdateProgress, s
                 ⭐ {showDetails.vote_average.toFixed(1)}
               </ThemedText>
             )}
+
+            {/* Show Status */}
+            {showStatusInfo && (
+              <View style={[styles.showStatusBadge, { backgroundColor: showStatusInfo.color + '20' }]}>
+                <ThemedText style={[styles.showStatusText, { color: showStatusInfo.color }]}>
+                  {showStatusInfo.text}
+                </ThemedText>
+              </View>
+            )}
           </View>
+
+          {/* Next Episode Info */}
+          {nextEpisode && userShow.status === 'watching' && (
+            <View style={styles.nextEpisodeContainer}>
+              <ThemedText style={styles.nextEpisodeTitle} numberOfLines={1}>
+                Next: S{nextEpisode.season}E{nextEpisode.episode} - {nextEpisode.name}
+              </ThemedText>
+              <ThemedText style={styles.countdown}>
+                {formatCountdown(nextEpisode.airDate)}
+              </ThemedText>
+            </View>
+          )}
+
+          {/* Loading next episode */}
+          {loadingNext && userShow.status === 'watching' && (
+            <View style={styles.nextEpisodeContainer}>
+              <ThemedText style={styles.loadingText}>Loading next episode...</ThemedText>
+            </View>
+          )}
 
           {/* Progress or Status */}
           <View style={styles.statusContainer}>
@@ -102,71 +158,71 @@ export default function LibraryShowCard({ userShow, onPress, onUpdateProgress, s
                 </ThemedText>
               </TouchableOpacity>
             )}
-            
-            {showProgress && !getProgressText() && onUpdateProgress && (
+
+            {showProgress && !getProgressText() && userShow.status === 'watching' && (
               <TouchableOpacity 
                 style={styles.addProgressButton}
                 onPress={() => setShowProgressModal(true)}
               >
                 <ThemedText style={styles.addProgressText}>
-                  + Progress
+                  Add Progress
                 </ThemedText>
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Rating */}
+          {/* User Rating */}
           {userShow.rating && (
             <View style={styles.userRating}>
               <ThemedText style={styles.userRatingText}>
-                {'⭐'.repeat(userShow.rating)}
+                {'⭐'.repeat(userShow.rating)} ({userShow.rating}/5)
               </ThemedText>
             </View>
           )}
 
-          {/* Overview */}
-          {showDetails?.overview && (
-            <ThemedText style={styles.overview} numberOfLines={2}>
-              {showDetails.overview}
+          {/* User Notes */}
+          {userShow.notes && (
+            <ThemedText style={styles.notes} numberOfLines={2}>
+              &ldquo;{userShow.notes}&rdquo;
             </ThemedText>
           )}
 
-          {/* Notes */}
-          {userShow.notes && (
-            <ThemedText style={styles.notes} numberOfLines={1}>
-              💭 {userShow.notes}
+          {/* Show Overview (for want-to-watch) */}
+          {userShow.status === 'want-to-watch' && showDetails?.overview && (
+            <ThemedText style={styles.overview} numberOfLines={3}>
+              {showDetails.overview}
             </ThemedText>
           )}
         </View>
       </ThemedView>
 
       {/* Episode Progress Modal */}
-      <EpisodeProgressModal
-        visible={showProgressModal}
-        onClose={() => setShowProgressModal(false)}
-        onUpdate={(season, episode) => {
-          if (onUpdateProgress) {
+      {showProgressModal && onUpdateProgress && (
+        <EpisodeProgressModal
+          visible={showProgressModal}
+          onClose={() => setShowProgressModal(false)}
+          showName={showDetails?.name || `Show #${userShow.showId}`}
+          currentSeason={userShow.currentSeason || 1}
+          currentEpisode={userShow.currentEpisode || 0}
+          onUpdate={(season: number, episode: number) => {
             onUpdateProgress(userShow.showId, season, episode);
-          }
-        }}
-        showName={showDetails?.name || `Show #${userShow.showId}`}
-        currentSeason={userShow.currentSeason}
-        currentEpisode={userShow.currentEpisode}
-      />
+            setShowProgressModal(false);
+          }}
+        />
+      )}
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginVertical: 6,
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.03)',
     borderRadius: 12,
     overflow: 'hidden',
-    elevation: 2,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -176,24 +232,25 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   poster: {
-    width: 100,
-    height: 150,
+    width: 80,
+    height: 120,
+    borderRadius: 8,
   },
   placeholderPoster: {
-    width: 100,
-    height: 150,
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    width: 80,
+    height: 120,
+    borderRadius: 8,
+    backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: 32,
-    opacity: 0.5,
+    fontSize: 24,
   },
   statusDot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 4,
+    right: 4,
     width: 12,
     height: 12,
     borderRadius: 6,
@@ -211,7 +268,9 @@ const styles = StyleSheet.create({
   },
   metadata: {
     flexDirection: 'row',
-    gap: 12,
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
   },
   year: {
     fontSize: 12,
@@ -220,6 +279,37 @@ const styles = StyleSheet.create({
   rating: {
     fontSize: 12,
     opacity: 0.7,
+  },
+  showStatusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  showStatusText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  nextEpisodeContainer: {
+    backgroundColor: 'rgba(52,199,89,0.1)',
+    padding: 8,
+    borderRadius: 8,
+    gap: 2,
+  },
+  nextEpisodeTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#34C759',
+  },
+  countdown: {
+    fontSize: 11,
+    color: '#34C759',
+    opacity: 0.8,
+  },
+  loadingText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    opacity: 0.6,
   },
   statusContainer: {
     flexDirection: 'row',
@@ -234,13 +324,10 @@ const styles = StyleSheet.create({
   progress: {
     fontSize: 12,
     fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+    color: '#007AFF',
   },
   progressButton: {
-    backgroundColor: 'rgba(0,0,0,0.1)',
+    backgroundColor: 'rgba(0,122,255,0.1)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 12,
@@ -260,7 +347,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   userRatingText: {
-    fontSize: 14,
+    fontSize: 12,
   },
   overview: {
     fontSize: 12,
@@ -276,3 +363,5 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
 });
+
+export default LibraryShowCard;

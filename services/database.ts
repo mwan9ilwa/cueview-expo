@@ -3,17 +3,72 @@ import * as SQLite from 'expo-sqlite';
 
 class DatabaseService {
   private db: SQLite.SQLiteDatabase | null = null;
+  private initializing = false;
+  private initialized = false;
+
+  private async ensureInitialized(): Promise<void> {
+    if (this.initialized && this.db) return;
+    
+    if (this.initializing) {
+      // Wait for initialization to complete
+      let attempts = 0;
+      while (this.initializing && attempts < 50) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      if (!this.initialized || !this.db) {
+        throw new Error('Database initialization failed or timed out');
+      }
+      return;
+    }
+
+    await this.init();
+  }
 
   async init() {
+    if (this.initialized && this.db) {
+      console.log('Database already initialized');
+      return;
+    }
+
+    this.initializing = true;
+    
     try {
       this.db = await SQLite.openDatabaseAsync('cueview.db');
       
-      // Reset database to ensure correct schema (development only)
-      await this.resetDatabase();
+      // Only reset database if needed (check for version/schema mismatch)
+      const needsReset = await this.shouldResetDatabase();
+      if (needsReset) {
+        console.log('Resetting database due to schema changes...');
+        await this.resetDatabase();
+      } else {
+        await this.createTables();
+      }
       
+      this.initialized = true;
+      console.log('Database initialized successfully');
     } catch (error) {
       console.error('Failed to initialize database:', error);
+      this.db = null;
+      this.initialized = false;
       throw error;
+    } finally {
+      this.initializing = false;
+    }
+  }
+
+  private async shouldResetDatabase(): Promise<boolean> {
+    if (!this.db) return false;
+    
+    try {
+      // Check if tables exist and have correct schema
+      const result = await this.db.getFirstAsync(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='user_shows'"
+      );
+      return !result; // Reset if tables don't exist
+    } catch (error) {
+      console.log('Database schema check failed, will reset:', error);
+      return true;
     }
   }
 
@@ -114,7 +169,8 @@ class DatabaseService {
 
   // User Shows methods
   async saveUserShow(userShow: UserShow): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not ready');
 
     await this.db.runAsync(
       `INSERT OR REPLACE INTO user_shows 
@@ -139,7 +195,8 @@ class DatabaseService {
   }
 
   async getUserShows(userId: string): Promise<UserShow[]> {
-    if (!this.db) throw new Error('Database not initialized');
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not ready');
 
     const result = await this.db.getAllAsync(
       'SELECT * FROM user_shows WHERE user_id = ? ORDER BY updated_at DESC',
@@ -168,7 +225,8 @@ class DatabaseService {
   }
 
   async deleteUserShow(userShowId: string): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    await this.ensureInitialized();
+    if (!this.db) throw new Error('Database not ready');
     
     await this.db.runAsync('DELETE FROM user_shows WHERE id = ?', [userShowId]);
   }

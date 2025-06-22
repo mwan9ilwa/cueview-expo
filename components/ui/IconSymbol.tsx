@@ -22,6 +22,19 @@ const MAPPING = {
   'magnifyingglass': 'search',
   'calendar': 'calendar-today',
   'person.fill': 'person',
+  'gearshape.fill': 'settings',
+  'ellipsis': 'more-vert',
+  'plus': 'add',
+  'trash': 'delete',
+  'star.fill': 'star',
+  'star.slash.fill': 'star-outline',
+  'checkmark': 'check',
+  'xmark': 'close',
+  'arrow.right': 'arrow-forward',
+  'arrow.left': 'arrow-back',
+  'arrow.up': 'arrow-upward',
+  'video.fill': 'video-library',
+  'binoculars.fill': 'search',
 } as IconMapping;
 
 /**

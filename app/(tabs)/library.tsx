@@ -96,7 +96,7 @@ export default function LibraryScreen() {
 
     return (
       <ThemedView style={styles.emptyContainer}>
-        <ThemedText style={styles.emptyText}>📺</ThemedText>
+        {/* <ThemedText style={styles.emptyText}>📺</ThemedText> */}
         <ThemedText style={styles.emptyMessage}>
           {messages[status]}
         </ThemedText>
@@ -171,7 +171,7 @@ export default function LibraryScreen() {
           <View>
             <ThemedText type="title">My Shows</ThemedText>
             <ThemedText style={styles.subtitle}>
-              Welcome back, {user.username}!
+              Track episodes
             </ThemedText>
           </View>
           
@@ -198,10 +198,6 @@ export default function LibraryScreen() {
             </TouchableOpacity>
           </View>
         </View>
-        
-        <ThemedText style={styles.syncHint}>
-          ☁️ Your shows sync automatically across devices. Use sync buttons to force sync.
-        </ThemedText>
         
         {error && (
           <ThemedText style={styles.errorText}>

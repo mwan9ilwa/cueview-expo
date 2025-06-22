@@ -152,3 +152,130 @@ export const getPosterUrl = (path: string | null, size: 'w92' | 'w154' | 'w185' 
 export const getBackdropUrl = (path: string | null, size: 'w300' | 'w780' | 'w1280' | 'original' = 'w780') => {
   return getImageUrl(path, size as any);
 };
+
+// Helper functions for episode and season data
+export const getNextEpisodeInfo = async (showId: number, currentSeason?: number, currentEpisode?: number) => {
+  try {
+    const showDetails = await tmdbService.getShowDetails(showId);
+    
+    // If show is ended, return null
+    if (showDetails.status === 'Ended' || showDetails.status === 'Canceled') {
+      return null;
+    }
+
+    // Determine which season to check for next episode
+    const seasonToCheck = currentSeason || showDetails.number_of_seasons;
+    
+    try {
+      const seasonData = await tmdbService.getSeasonDetails(showId, seasonToCheck);
+      
+      // Find next episode
+      const nextEpisodeNumber = (currentEpisode || 0) + 1;
+      const nextEpisode = seasonData.episodes.find(ep => ep.episode_number === nextEpisodeNumber);
+      
+      if (nextEpisode && nextEpisode.air_date) {
+        return {
+          type: 'episode',
+          season: seasonToCheck,
+          episode: nextEpisode.episode_number,
+          name: nextEpisode.name,
+          airDate: nextEpisode.air_date,
+          overview: nextEpisode.overview,
+        };
+      }
+      
+      // If no next episode in current season, check next season
+      if (seasonToCheck < showDetails.number_of_seasons) {
+        const nextSeasonData = await tmdbService.getSeasonDetails(showId, seasonToCheck + 1);
+        const firstEpisode = nextSeasonData.episodes[0];
+        
+        if (firstEpisode && firstEpisode.air_date) {
+          return {
+            type: 'episode',
+            season: seasonToCheck + 1,
+            episode: firstEpisode.episode_number,
+            name: firstEpisode.name,
+            airDate: firstEpisode.air_date,
+            overview: firstEpisode.overview,
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error fetching season ${seasonToCheck} for show ${showId}:`, error);
+      return null;
+    }
+  } catch (error) {
+    console.error(`Error fetching show details for ${showId}:`, error);
+    return null;
+  }
+};
+
+export const getShowStatusInfo = (show: TMDbShow | { status: string }) => {
+  const status = show.status.toLowerCase();
+  
+  let statusText = '';
+  let statusColor = '#999';
+  
+  switch (status) {
+    case 'returning series':
+      statusText = 'Returning';
+      statusColor = '#34C759';
+      break;
+    case 'ended':
+      statusText = 'Ended';
+      statusColor = '#FF3B30';
+      break;
+    case 'canceled':
+    case 'cancelled':
+      statusText = 'Canceled';
+      statusColor = '#FF3B30';
+      break;
+    case 'in production':
+      statusText = 'In Production';
+      statusColor = '#FF9500';
+      break;
+    case 'planned':
+      statusText = 'Planned';
+      statusColor = '#5856D6';
+      break;
+    case 'pilot':
+      statusText = 'Pilot';
+      statusColor = '#AF52DE';
+      break;
+    default:
+      statusText = show.status;
+      statusColor = '#999';
+  }
+  
+  return {
+    text: statusText,
+    color: statusColor,
+    isActive: status === 'returning series' || status === 'in production',
+    inProduction: 'in_production' in show ? show.in_production : false,
+  };
+};
+
+export const formatCountdown = (airDate: string): string => {
+  const today = new Date();
+  const air = new Date(airDate);
+  const diffTime = air.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return `Aired ${Math.abs(diffDays)} days ago`;
+  } else if (diffDays === 0) {
+    return 'Airs today';
+  } else if (diffDays === 1) {
+    return 'Airs tomorrow';
+  } else if (diffDays <= 7) {
+    return `Airs in ${diffDays} days`;
+  } else if (diffDays <= 30) {
+    const weeks = Math.floor(diffDays / 7);
+    return `Airs in ${weeks} week${weeks > 1 ? 's' : ''}`;
+  } else {
+    const months = Math.floor(diffDays / 30);
+    return `Airs in ${months} month${months > 1 ? 's' : ''}`;
+  }
+};

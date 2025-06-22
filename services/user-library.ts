@@ -34,17 +34,31 @@ class UserLibraryService {
         // Firestore is the authoritative source
         shows = await firestoreService.getUserShows(userId);
         
-        // Replace local SQLite data with Firestore data (clear and repopulate)
-        await this.replaceLocalDataWithFirestore(userId, shows);
+        // Try to replace local SQLite data with Firestore data
+        try {
+          await this.replaceLocalDataWithFirestore(userId, shows);
+        } catch (dbError) {
+          console.error('Failed to sync to local database, continuing with Firestore data only:', dbError);
+        }
         
         console.log(`Loaded ${shows.length} shows from Firestore (authoritative source)`);
       } catch (error) {
-        console.log('Failed to load from Firestore, using local cache:', error);
-        shows = await dbService.getUserShows(userId);
+        console.log('Failed to load from Firestore, trying local cache:', error);
+        try {
+          shows = await dbService.getUserShows(userId);
+        } catch (dbError) {
+          console.error('Failed to load from local database:', dbError);
+          shows = []; // Return empty array if both sources fail
+        }
       }
     } else {
       // Offline mode - use local SQLite cache
-      shows = await dbService.getUserShows(userId);
+      try {
+        shows = await dbService.getUserShows(userId);
+      } catch (dbError) {
+        console.error('Failed to load from local database in offline mode:', dbError);
+        shows = []; // Return empty array if database fails
+      }
     }
 
     this.userShows.set(userId, shows);
@@ -77,8 +91,13 @@ class UserLibraryService {
       updatedAt: new Date(),
     };
 
-    // Save to local database first
-    await dbService.saveUserShow(userShow);
+    // Try to save to local database first
+    try {
+      await dbService.saveUserShow(userShow);
+    } catch (dbError) {
+      console.error('Failed to save to local database:', dbError);
+      // Continue with Firestore sync only
+    }
     
     // Sync to Firestore if enabled
     if (this.syncEnabled) {
@@ -86,7 +105,8 @@ class UserLibraryService {
         await firestoreService.saveUserShow(userShow);
       } catch (error) {
         console.error('Failed to sync show to Firestore:', error);
-        // Continue - local save succeeded
+        // If both local and cloud saves failed, throw error
+        throw new Error('Failed to save show to both local and cloud storage');
       }
     }
     
@@ -102,8 +122,13 @@ class UserLibraryService {
     
     this.userShows.set(userId, userShows);
 
-    // Cache the show data for offline access
-    await this.cacheShowData(show);
+    // Try to cache the show data for offline access
+    try {
+      await this.cacheShowData(show);
+    } catch (cacheError) {
+      console.error('Failed to cache show data:', cacheError);
+      // Continue - this is not critical
+    }
   }
 
   async removeShowFromLibrary(userId: string, showId: number): Promise<void> {

@@ -56,7 +56,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="calendar"
           options={{
-            href: null, // Hide this tab for unauthenticated users
+            href: null, // Hide calendar tab
           }}
         />
         <Tabs.Screen
@@ -95,21 +95,20 @@ export default function TabLayout() {
         name="library"
         options={{
           title: 'My Shows',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="heart.fill" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="video.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="discover"
         options={{
           title: 'Discover',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass" color={color} />,
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="binoculars.fill" color={color} />,
         }}
       />
       <Tabs.Screen
         name="calendar"
         options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+          href: null, // Hide calendar tab entirely
         }}
       />
       <Tabs.Screen
