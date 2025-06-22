@@ -1,4 +1,5 @@
 import LoadingScreen from '@/components/LoadingScreen';
+import RatingNotesModal from '@/components/RatingNotesModal';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/SimpleAuthContext';
@@ -22,9 +23,10 @@ export default function ShowDetailsScreen() {
   const { 
     addShow, 
     removeShow, 
-    updateShowStatus, 
     isShowInLibrary, 
-    getUserShowForShow 
+    getUserShowForShow,
+    rateShow,
+    addNoteToShow,
   } = useUserLibrary();
   
   const [show, setShow] = useState<TMDbShow | null>(null);
@@ -33,6 +35,8 @@ export default function ShowDetailsScreen() {
   const [userStatus, setUserStatus] = useState<ShowStatus | null>(null);
   const [isInLibrary, setIsInLibrary] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [userShow, setUserShow] = useState<any>(null);
 
   const loadShowDetails = React.useCallback(async () => {
     try {
@@ -44,13 +48,14 @@ export default function ShowDetailsScreen() {
       
       // Check if show is in user's library
       if (user) {
-        const [inLibrary, userShow] = await Promise.all([
+        const [inLibrary, userShowData] = await Promise.all([
           isShowInLibrary(showData.id),
           getUserShowForShow(showData.id),
         ]);
         
         setIsInLibrary(inLibrary);
-        setUserStatus(userShow?.status || null);
+        setUserStatus(userShowData?.status || null);
+        setUserShow(userShowData);
       }
       
     } catch (error) {
@@ -133,6 +138,32 @@ export default function ShowDetailsScreen() {
     );
   };
 
+  const handleRatingNotesUpdate = async (rating?: number, notes?: string) => {
+    if (!show || !user) return;
+    
+    try {
+      setActionLoading(true);
+      
+      if (rating !== undefined) {
+        await rateShow(show.id, rating);
+      }
+      
+      if (notes !== undefined) {
+        await addNoteToShow(show.id, notes);
+      }
+      
+      // Refresh user show data
+      const updatedUserShow = await getUserShowForShow(show.id);
+      setUserShow(updatedUserShow);
+      
+    } catch (error) {
+      console.error('Error updating rating/notes:', error);
+      Alert.alert('Error', 'Failed to update rating/notes. Please try again.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return <LoadingScreen message="Loading show details..." />;
   }
@@ -169,8 +200,8 @@ export default function ShowDetailsScreen() {
     }
   };
 
-  const formatRuntime = (runtime: number[]) => {
-    if (runtime.length === 0) return 'Unknown';
+  const formatRuntime = (runtime: number[] | null | undefined) => {
+    if (!runtime || !Array.isArray(runtime) || runtime.length === 0) return 'Unknown';
     return `${runtime[0]} min`;
   };
 
@@ -200,18 +231,18 @@ export default function ShowDetailsScreen() {
           
           <View style={styles.titleContainer}>
             <ThemedText type="title" style={styles.title}>
-              {show.name}
+              {show.name || 'Unknown Show'}
             </ThemedText>
             
             <View style={styles.metaInfo}>
               <ThemedText style={styles.year}>
-                {formatDate(show.first_air_date)} • {show.status}
+                {formatDate(show.first_air_date || '')} • {show.status || 'Unknown'}
               </ThemedText>
               <ThemedText style={styles.rating}>
-                ⭐ {show.vote_average.toFixed(1)} ({show.vote_count} votes)
+                ⭐ {show.vote_average?.toFixed(1) || 'N/A'} ({show.vote_count || 0} votes)
               </ThemedText>
               <ThemedText style={styles.episodes}>
-                {show.number_of_seasons} seasons • {show.number_of_episodes} episodes
+                {show.number_of_seasons || 0} seasons • {show.number_of_episodes || 0} episodes
               </ThemedText>
               <ThemedText style={styles.runtime}>
                 {formatRuntime(show.episode_run_time)} per episode
@@ -230,15 +261,28 @@ export default function ShowDetailsScreen() {
                 In your library: {userStatus?.replace('-', ' ')}
               </ThemedText>
             </View>
-            <TouchableOpacity 
-              style={[styles.removeButton, actionLoading && styles.disabledButton]}
-              onPress={handleRemoveFromLibrary}
-              disabled={actionLoading}
-            >
-              <ThemedText style={styles.removeButtonText}>
-                {actionLoading ? 'Removing...' : 'Remove from Library'}
-              </ThemedText>
-            </TouchableOpacity>
+            
+            <View style={styles.libraryActionsContainer}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.rateButton]}
+                onPress={() => setShowRatingModal(true)}
+                disabled={actionLoading}
+              >
+                <ThemedText style={styles.actionButtonText}>
+                  {userShow?.rating ? `⭐ ${userShow.rating}` : '⭐ Rate'}
+                </ThemedText>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.removeButton, actionLoading && styles.disabledButton]}
+                onPress={handleRemoveFromLibrary}
+                disabled={actionLoading}
+              >
+                <ThemedText style={styles.removeButtonText}>
+                  {actionLoading ? 'Removing...' : 'Remove'}
+                </ThemedText>
+              </TouchableOpacity>
+            </View>
           </>
         ) : (
           <View style={styles.addButtonsContainer}>
@@ -334,6 +378,18 @@ export default function ShowDetailsScreen() {
       )}
 
       <ThemedView style={styles.bottomPadding} />
+
+      {/* Rating & Notes Modal */}
+      {show && (
+        <RatingNotesModal
+          visible={showRatingModal}
+          onClose={() => setShowRatingModal(false)}
+          onSave={handleRatingNotesUpdate}
+          showName={show.name || 'Unknown Show'}
+          currentRating={userShow?.rating}
+          currentNotes={userShow?.notes}
+        />
+      )}
     </ScrollView>
   );
 }
@@ -456,6 +512,24 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.5,
+  },
+  libraryActionsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    flex: 1,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  rateButton: {
+    backgroundColor: '#FF9500',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
   },
   section: {
     padding: 16,

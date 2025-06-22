@@ -1,3 +1,4 @@
+import LibraryShowCard from '@/components/LibraryShowCard';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -5,7 +6,7 @@ import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 
 type LibraryTab = 'watching' | 'want-to-watch' | 'watched';
@@ -13,17 +14,21 @@ type LibraryTab = 'watching' | 'want-to-watch' | 'watched';
 export default function LibraryScreen() {
   const { user } = useAuth();
   const { 
-    watchingShows, 
-    wantToWatchShows, 
-    watchedShows, 
+    watchingShowsWithDetails, 
+    wantToWatchShowsWithDetails, 
+    watchedShowsWithDetails, 
     stats, 
     loading, 
     error, 
-    refreshLibrary 
+    refreshLibrary,
+    updateShowProgress,
+    syncToCloud,
+    syncFromCloud,
   } = useUserLibrary();
   
   const [activeTab, setActiveTab] = useState<LibraryTab>('watching');
   const [refreshing, setRefreshing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -31,15 +36,49 @@ export default function LibraryScreen() {
     setRefreshing(false);
   };
 
+  const handleSyncToCloud = async () => {
+    setSyncing(true);
+    try {
+      await syncToCloud();
+      Alert.alert('Success', 'Your library has been synced to the cloud!');
+    } catch (error) {
+      console.error('Sync to cloud failed:', error);
+      Alert.alert('Error', 'Failed to sync to cloud. Check your internet connection.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleSyncFromCloud = async () => {
+    setSyncing(true);
+    try {
+      await syncFromCloud();
+      Alert.alert('Success', 'Your library has been synced from the cloud!');
+    } catch (error) {
+      console.error('Sync from cloud failed:', error);
+      Alert.alert('Error', 'Failed to sync from cloud. Check your internet connection.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleShowPress = (showId: number) => {
     router.push(`/show/${showId}`);
   };
 
+  const handleUpdateProgress = async (showId: number, season: number, episode: number) => {
+    try {
+      await updateShowProgress(showId, season, episode);
+    } catch (error) {
+      console.error('Error updating progress:', error);
+    }
+  };
+
   // Map user shows status to component-compatible data
   const userShows = {
-    watching: watchingShows,
-    'want-to-watch': wantToWatchShows,
-    watched: watchedShows,
+    watching: watchingShowsWithDetails,
+    'want-to-watch': wantToWatchShowsWithDetails,
+    watched: watchedShowsWithDetails,
   };
 
   const tabs: { key: LibraryTab; label: string; color: string }[] = [
@@ -91,35 +130,14 @@ export default function LibraryScreen() {
             {shows.length} show{shows.length !== 1 ? 's' : ''} in {activeTab.replace('-', ' ')}
           </ThemedText>
           
-          {/* For now, show a simple list until we implement proper show data caching */}
           {shows.map((userShow) => (
-            <TouchableOpacity
+            <LibraryShowCard
               key={userShow.id}
-              style={styles.showItem}
-              onPress={() => handleShowPress(userShow.showId)}
-            >
-              <ThemedView style={styles.showItemContent}>
-                <ThemedText type="defaultSemiBold">
-                  Show ID: {userShow.showId}
-                </ThemedText>
-                <ThemedText style={styles.showStatus}>
-                  Status: {userShow.status.replace('-', ' ')}
-                </ThemedText>
-                <ThemedText style={styles.showDate}>
-                  Added: {new Date(userShow.addedAt).toLocaleDateString()}
-                </ThemedText>
-                {userShow.rating && (
-                  <ThemedText style={styles.showRating}>
-                    Rating: {'⭐'.repeat(userShow.rating)}
-                  </ThemedText>
-                )}
-                {userShow.notes && (
-                  <ThemedText style={styles.showNotes}>
-                    Notes: {userShow.notes}
-                  </ThemedText>
-                )}
-              </ThemedView>
-            </TouchableOpacity>
+              userShow={userShow}
+              onPress={handleShowPress}
+              onUpdateProgress={handleUpdateProgress}
+              showProgress={activeTab === 'watching'}
+            />
           ))}
         </ThemedView>
       </ScrollView>
@@ -149,10 +167,47 @@ export default function LibraryScreen() {
   return (
     <ThemedView style={styles.container}>
       <ThemedView style={styles.header}>
-        <ThemedText type="title">My Shows</ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Welcome back, {user.username}!
+        <View style={styles.headerContent}>
+          <View>
+            <ThemedText type="title">My Shows</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Welcome back, {user.username}!
+            </ThemedText>
+          </View>
+          
+          {/* Sync Buttons */}
+          <View style={styles.syncButtons}>
+            <TouchableOpacity
+              style={[styles.syncButton, syncing && styles.syncButtonDisabled]}
+              onPress={handleSyncToCloud}
+              disabled={syncing}
+            >
+              <ThemedText style={styles.syncButtonText}>
+                {syncing ? '⏳' : '☁️ ↑'}
+              </ThemedText>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.syncButton, syncing && styles.syncButtonDisabled]}
+              onPress={handleSyncFromCloud}
+              disabled={syncing}
+            >
+              <ThemedText style={styles.syncButtonText}>
+                {syncing ? '⏳' : '☁️ ↓'}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        <ThemedText style={styles.syncHint}>
+          ☁️ Your shows sync automatically across devices. Use sync buttons to force sync.
         </ThemedText>
+        
+        {error && (
+          <ThemedText style={styles.errorText}>
+            ⚠️ {error}
+          </ThemedText>
+        )}
       </ThemedView>
 
       {/* Tab Selector */}
@@ -199,16 +254,24 @@ export default function LibraryScreen() {
 
       {/* Quick Stats */}
       <ThemedView style={styles.statsContainer}>
-        <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
+        <ThemedText type="defaultSemiBold">Library Stats</ThemedText>
         <View style={styles.statsRow}>
           <ThemedText style={styles.statItem}>
-            📺 {userShows.watching.length} watching
+            📺 {stats.watching} watching
           </ThemedText>
           <ThemedText style={styles.statItem}>
-            📋 {userShows['want-to-watch'].length} planned
+            📋 {stats.wantToWatch} planned
           </ThemedText>
           <ThemedText style={styles.statItem}>
-            ✅ {userShows.watched.length} completed
+            ✅ {stats.watched} completed
+          </ThemedText>
+        </View>
+        <View style={styles.statsRow}>
+          <ThemedText style={styles.statItem}>
+            🎬 {stats.totalEpisodesWatched} episodes
+          </ThemedText>
+          <ThemedText style={styles.statItem}>
+            ⭐ {stats.averageRating > 0 ? stats.averageRating : 'No'} avg rating
           </ThemedText>
         </View>
       </ThemedView>
@@ -223,7 +286,44 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     paddingTop: 60,
-    gap: 4,
+    gap: 8,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  syncButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  syncButton: {
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 122, 255, 0.3)',
+  },
+  syncButtonDisabled: {
+    opacity: 0.5,
+  },
+  syncButtonText: {
+    fontSize: 16,
+    color: '#007AFF',
+  },
+  syncHint: {
+    fontSize: 12,
+    opacity: 0.6,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#FF3B30',
+    textAlign: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    padding: 8,
+    borderRadius: 6,
   },
   subtitle: {
     opacity: 0.8,

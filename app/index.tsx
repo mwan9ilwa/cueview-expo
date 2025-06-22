@@ -21,10 +21,10 @@ export default function IndexScreen() {
 
   // Redirect based on authentication state
   if (isAuthenticated && user) {
-    console.log('🔓 User authenticated, redirecting to tabs:', user.email);
+    console.log('🔓 User authenticated, redirecting to tabs home:', user.email);
     return <Redirect href="/(tabs)" />;
   } else {
-    console.log('🔒 User not authenticated, redirecting to welcome. Auth state:', { isAuthenticated, hasUser: !!user });
-    return <Redirect href="/(auth)/welcome" />;
+    console.log('� User not authenticated, redirecting to discover (guest mode)');
+    return <Redirect href="/(tabs)/discover" />;
   }
 }

@@ -1,22 +1,22 @@
 import ShowCard from '@/components/ShowCard';
-import ShowList from '@/components/ShowList';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { tmdbService, TMDbShow } from '@/services/tmdb';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    FlatList,
-    ScrollView,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function DiscoverScreen() {
   const colorScheme = useColorScheme();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<TMDbShow[]>([]);
   const [trendingShows, setTrendingShows] = useState<TMDbShow[]>([]);
@@ -29,6 +29,21 @@ export default function DiscoverScreen() {
     loadDiscoverData();
   }, []);
 
+  const performSearch = useCallback(async () => {
+    if (!searchQuery.trim()) return;
+
+    try {
+      setIsSearching(true);
+      const results = await tmdbService.searchShows(searchQuery.trim());
+      setSearchResults(results.results);
+    } catch (error) {
+      console.error('Error searching shows:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchQuery]);
+
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
       if (searchQuery.trim()) {
@@ -40,7 +55,7 @@ export default function DiscoverScreen() {
     }, 500);
 
     return () => clearTimeout(delayedSearch);
-  }, [searchQuery]);
+  }, [searchQuery, performSearch]);
 
   const loadDiscoverData = async () => {
     try {
@@ -61,21 +76,6 @@ export default function DiscoverScreen() {
     }
   };
 
-  const performSearch = async () => {
-    if (!searchQuery.trim()) return;
-
-    try {
-      setIsSearching(true);
-      const results = await tmdbService.searchShows(searchQuery.trim());
-      setSearchResults(results.results);
-    } catch (error) {
-      console.error('Error searching shows:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const handleShowPress = (show: TMDbShow) => {
     router.push(`/show/${show.id}`);
   };
@@ -86,63 +86,203 @@ export default function DiscoverScreen() {
     setIsSearching(false);
   };
 
-  const renderSearchResults = () => {
-    if (isSearching) {
-      return (
-        <ThemedView style={styles.searchSection}>
-          <ThemedText style={styles.searchingText}>🔍 Searching...</ThemedText>
-        </ThemedView>
-      );
+  const handleSignIn = () => {
+    router.push('/(auth)/sign-in');
+  };
+
+  const handleSignUp = () => {
+    router.push('/(auth)/sign-up');
+  };
+
+  // Create sections for the FlatList
+  const createSections = () => {
+    const sections = [];
+
+    if (searchQuery.trim()) {
+      if (isSearching) {
+        sections.push({
+          type: 'searching',
+          data: [],
+        });
+      } else if (searchResults.length === 0) {
+        sections.push({
+          type: 'no_results',
+          data: [],
+          query: searchQuery,
+        });
+      } else {
+        sections.push({
+          type: 'search_results',
+          title: `Search Results (${searchResults.length})`,
+          data: searchResults,
+        });
+      }
+    } else {
+      // Browse sections
+      if (trendingShows.length > 0) {
+        sections.push({
+          type: 'horizontal_list',
+          title: 'Trending This Week',
+          data: trendingShows,
+        });
+      }
+      
+      if (popularShows.length > 0) {
+        sections.push({
+          type: 'horizontal_list',
+          title: 'Popular Shows',
+          data: popularShows,
+        });
+      }
+      
+      if (topRatedShows.length > 0) {
+        sections.push({
+          type: 'horizontal_list',
+          title: 'Top Rated',
+          data: topRatedShows,
+        });
+      }
+
+      sections.push({
+        type: 'coming_soon',
+        data: [],
+      });
     }
 
-    if (searchResults.length === 0 && searchQuery.trim()) {
-      return (
-        <ThemedView style={styles.searchSection}>
-          <ThemedText style={styles.noResultsText}>
-            No shows found for "{searchQuery}"
-          </ThemedText>
-          <ThemedText style={styles.noResultsHint}>
-            Try different keywords or browse trending shows below
-          </ThemedText>
-        </ThemedView>
-      );
+    return sections;
+  };
+
+  const renderSearchGrid = (shows: TMDbShow[]) => {
+    // Create rows of 3 items each for the search grid
+    const rows = [];
+    for (let i = 0; i < shows.length; i += 3) {
+      rows.push(shows.slice(i, i + 3));
     }
 
-    if (searchResults.length > 0) {
-      return (
-        <ThemedView style={styles.searchSection}>
-          <View style={styles.searchHeader}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-              Search Results ({searchResults.length})
-            </ThemedText>
-            <TouchableOpacity onPress={clearSearch}>
-              <ThemedText style={styles.clearButton}>Clear</ThemedText>
-            </TouchableOpacity>
+    return (
+      <View style={styles.searchSection}>
+        <View style={styles.searchHeader}>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            Search Results ({shows.length})
+          </ThemedText>
+          <TouchableOpacity onPress={clearSearch}>
+            <ThemedText style={styles.clearButton}>Clear</ThemedText>
+          </TouchableOpacity>
+        </View>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={styles.searchGrid}>
+            {row.map((show) => (
+              <View key={show.id} style={styles.searchGridItem}>
+                <ShowCard show={show} onPress={handleShowPress} />
+              </View>
+            ))}
           </View>
-          <FlatList
-            data={searchResults}
-            renderItem={({ item }) => (
-              <ShowCard show={item} onPress={handleShowPress} />
-            )}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={3}
-            columnWrapperStyle={styles.searchGrid}
-            showsVerticalScrollIndicator={false}
-          />
-        </ThemedView>
-      );
-    }
+        ))}
+      </View>
+    );
+  };
 
-    return null;
+  const renderSectionItem = ({ item: section }: { item: any }) => {
+    switch (section.type) {
+      case 'searching':
+        return (
+          <ThemedView style={styles.searchSection}>
+            <ThemedText style={styles.searchingText}>🔍 Searching...</ThemedText>
+          </ThemedView>
+        );
+
+      case 'no_results':
+        return (
+          <ThemedView style={styles.searchSection}>
+            <ThemedText style={styles.noResultsText}>
+              No shows found for &quot;{section.query}&quot;
+            </ThemedText>
+            <ThemedText style={styles.noResultsHint}>
+              Try different keywords or browse trending shows below
+            </ThemedText>
+          </ThemedView>
+        );
+
+      case 'search_results':
+        return renderSearchGrid(section.data);
+
+      case 'horizontal_list':
+        if (isLoading) {
+          return (
+            <View style={styles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                {section.title}
+              </ThemedText>
+              <ThemedText style={styles.loadingText}>📱 Loading shows...</ThemedText>
+            </View>
+          );
+        }
+        return (
+          <View style={styles.horizontalSection}>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+              {section.title}
+            </ThemedText>
+            <FlatList
+              data={section.data}
+              renderItem={({ item }) => (
+                <ShowCard show={item} onPress={handleShowPress} />
+              )}
+              keyExtractor={(item) => `${section.title}-${item.id}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            />
+          </View>
+        );
+
+      case 'coming_soon':
+        return (
+          <ThemedView style={styles.comingSoonSection}>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+              Coming Soon
+            </ThemedText>
+            <ThemedView style={styles.featureList}>
+              <ThemedText style={styles.featureItem}>🎭 Genre filters</ThemedText>
+              <ThemedText style={styles.featureItem}>📺 Network filters</ThemedText>
+              <ThemedText style={styles.featureItem}>🎯 Personalized recommendations</ThemedText>
+              <ThemedText style={styles.featureItem}>📅 New releases</ThemedText>
+            </ThemedView>
+          </ThemedView>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
     <ThemedView style={styles.container}>
       <ThemedView style={styles.header}>
-        <ThemedText type="title">Discover</ThemedText>
-        <ThemedText style={styles.subtitle}>
-          Find your next favorite show
-        </ThemedText>
+        <View style={styles.headerContent}>
+          <View style={styles.titleSection}>
+            <ThemedText type="title">Discover</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              Find your next favorite show
+            </ThemedText>
+          </View>
+          
+          {!isAuthenticated && (
+            <View style={styles.authButtons}>
+              <TouchableOpacity 
+                style={[styles.authButton, styles.signInButton]} 
+                onPress={handleSignIn}
+              >
+                <ThemedText style={styles.signInButtonText}>Sign In</ThemedText>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.authButton, styles.signUpButton]} 
+                onPress={handleSignUp}
+              >
+                <ThemedText style={styles.signUpButtonText}>Sign Up</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
       </ThemedView>
 
       {/* Search Bar */}
@@ -172,51 +312,15 @@ export default function DiscoverScreen() {
         </View>
       </ThemedView>
 
-      <ScrollView style={styles.content}>
-        {/* Search Results */}
-        {renderSearchResults()}
-
-        {/* Browse Sections - Only show when not searching */}
-        {!searchQuery.trim() && (
-          <>
-            <ShowList
-              title="Trending This Week"
-              shows={trendingShows}
-              onShowPress={handleShowPress}
-              loading={isLoading}
-            />
-
-            <ShowList
-              title="Popular Shows"
-              shows={popularShows}
-              onShowPress={handleShowPress}
-              loading={isLoading}
-            />
-
-            <ShowList
-              title="Top Rated"
-              shows={topRatedShows}
-              onShowPress={handleShowPress}
-              loading={isLoading}
-            />
-
-            {/* Coming Soon Features */}
-            <ThemedView style={styles.comingSoonSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-                Coming Soon
-              </ThemedText>
-              <ThemedView style={styles.featureList}>
-                <ThemedText style={styles.featureItem}>🎭 Genre filters</ThemedText>
-                <ThemedText style={styles.featureItem}>📺 Network filters</ThemedText>
-                <ThemedText style={styles.featureItem}>🎯 Personalized recommendations</ThemedText>
-                <ThemedText style={styles.featureItem}>📅 New releases</ThemedText>
-              </ThemedView>
-            </ThemedView>
-          </>
-        )}
-
-        <ThemedView style={styles.bottomPadding} />
-      </ScrollView>
+      {/* Single FlatList for all content */}
+      <FlatList
+        data={createSections()}
+        renderItem={renderSectionItem}
+        keyExtractor={(item, index) => `${item.type}-${index}`}
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.flatListContent}
+      />
     </ThemedView>
   );
 }
@@ -230,12 +334,53 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     gap: 4,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  titleSection: {
+    flex: 1,
+  },
   subtitle: {
     fontSize: 16,
     opacity: 0.7,
   },
+  authButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  authButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  signInButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#007AFF',
+  },
+  signUpButton: {
+    backgroundColor: '#007AFF',
+  },
+  signInButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  signUpButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   content: {
     flex: 1,
+  },
+  flatListContent: {
+    paddingBottom: 40,
   },
   section: {
     gap: 8,
@@ -298,6 +443,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
   clearButton: {
     fontSize: 16,
@@ -305,7 +452,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   searchGrid: {
+    flexDirection: 'row',
     justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  searchGridItem: {
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  horizontalSection: {
+    marginBottom: 24,
+  },
+  horizontalList: {
+    paddingHorizontal: 16,
+  },
+  loadingText: {
+    textAlign: 'center',
+    opacity: 0.6,
+    marginHorizontal: 16,
+    marginBottom: 20,
   },
   comingSoonSection: {
     margin: 16,

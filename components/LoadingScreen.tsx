@@ -11,9 +11,6 @@ export default function LoadingScreen({ message = 'Loading...' }: LoadingScreenP
   return (
     <ThemedView style={styles.container}>
       <ThemedView style={styles.content}>
-        <ThemedText type="title" style={styles.title}>CueView</ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>Your TV Show Companion</ThemedText>
-        
         <ActivityIndicator size="large" style={styles.spinner} />
         <ThemedText style={styles.message}>{message}</ThemedText>
       </ThemedView>

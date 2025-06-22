@@ -7,7 +7,10 @@ class DatabaseService {
   async init() {
     try {
       this.db = await SQLite.openDatabaseAsync('cueview.db');
-      await this.createTables();
+      
+      // Reset database to ensure correct schema (development only)
+      await this.resetDatabase();
+      
     } catch (error) {
       console.error('Failed to initialize database:', error);
       throw error;
@@ -151,10 +154,10 @@ class DatabaseService {
         userId: row.user_id,
         showId: row.show_id,
         status: row.status,
-        rating: row.rating,
-        notes: row.notes,
-        currentSeason: row.current_season,
-        currentEpisode: row.current_episode,
+        rating: row.rating === null ? undefined : row.rating,
+        notes: row.notes === null ? undefined : row.notes,
+        currentSeason: row.current_season === null ? undefined : row.current_season,
+        currentEpisode: row.current_episode === null ? undefined : row.current_episode,
         watchedEpisodes,
         addedAt: new Date(row.added_at),
         updatedAt: new Date(row.updated_at),
@@ -280,6 +283,42 @@ class DatabaseService {
       DELETE FROM cached_seasons;
       DELETE FROM cached_shows;
     `);
+  }
+
+  async clearUserShows(userId: string): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    // Delete watched episodes for this user's shows first (foreign key constraint)
+    await this.db.runAsync(`
+      DELETE FROM watched_episodes 
+      WHERE user_show_id IN (
+        SELECT id FROM user_shows WHERE user_id = ?
+      )
+    `, [userId]);
+
+    // Delete user shows for this user
+    await this.db.runAsync(
+      'DELETE FROM user_shows WHERE user_id = ?',
+      [userId]
+    );
+    
+    console.log(`Cleared all local shows for user ${userId}`);
+  }
+
+  // Force database reset when schema changes (for development)
+  async resetDatabase(): Promise<void> {
+    if (!this.db) throw new Error('Database not initialized');
+
+    await this.db.execAsync(`
+      DROP TABLE IF EXISTS watched_episodes;
+      DROP TABLE IF EXISTS user_shows;
+      DROP TABLE IF EXISTS cached_episodes;
+      DROP TABLE IF EXISTS cached_seasons;
+      DROP TABLE IF EXISTS cached_shows;
+    `);
+
+    await this.createTables();
+    console.log('Database schema reset completed');
   }
 }
 

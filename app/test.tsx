@@ -1,4 +1,5 @@
 import FirebaseDebugger from '@/components/FirebaseDebugger';
+import FirestoreSyncDemo from '@/components/FirestoreSyncDemo';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -10,6 +11,8 @@ export default function SimpleTest() {
         <Text style={styles.subtext}>Basic app is working!</Text>
         
         <FirebaseDebugger />
+        
+        <FirestoreSyncDemo />
       </View>
     </ScrollView>
   );

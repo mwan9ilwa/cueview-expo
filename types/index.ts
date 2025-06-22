@@ -26,6 +26,11 @@ export interface UserShow {
   updatedAt: Date;
 }
 
+// User show with cached show details
+export interface UserShowWithDetails extends UserShow {
+  showDetails: CachedShow | null;
+}
+
 // Watched episode tracking
 export interface WatchedEpisode {
   seasonNumber: number;

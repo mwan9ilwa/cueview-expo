@@ -115,9 +115,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   useEffect(() => {
+    console.log('🔧 Setting up Firebase auth state listener...');
     // Set up Firebase auth state listener
-    const unsubscribe = onAuthStateChanged(auth, updateAuthState);
-    return unsubscribe;
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('🔥 Auth state changed:', firebaseUser ? `User: ${firebaseUser.email}` : 'No user');
+      updateAuthState(firebaseUser);
+    });
+    
+    return () => {
+      console.log('🔧 Cleaning up Firebase auth state listener');
+      unsubscribe();
+    };
   }, []);
 
   // Real authentication functions

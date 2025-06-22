@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/SimpleAuthContext';
-import { Redirect, Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Platform } from 'react-native';
 
@@ -17,10 +17,56 @@ export default function TabLayout() {
     console.log('📱 Tabs Layout - Auth state:', { isAuthenticated, isLoading, hasUser: !!user });
   }, [isAuthenticated, isLoading, user]);
 
-  // If user is not authenticated, redirect to auth
+  // Show limited tabs for unauthenticated users (only Discover)
   if (!isLoading && !isAuthenticated) {
-    console.log('🔀 Tabs Layout: User not authenticated, redirecting to auth');
-    return <Redirect href="/(auth)/welcome" />;
+    console.log('� Showing guest mode with Discover tab only');
+    return (
+      <Tabs
+        screenOptions={{
+          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          headerShown: false,
+          tabBarButton: HapticTab,
+          tabBarBackground: TabBarBackground,
+          tabBarStyle: Platform.select({
+            ios: {
+              position: 'absolute',
+            },
+            default: {},
+          }),
+        }}>
+        <Tabs.Screen
+          name="discover"
+          options={{
+            title: 'Discover',
+            tabBarIcon: ({ color }) => <IconSymbol size={28} name="magnifyingglass" color={color} />,
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            href: null, // Hide this tab for unauthenticated users
+          }}
+        />
+        <Tabs.Screen
+          name="library"
+          options={{
+            href: null, // Hide this tab for unauthenticated users
+          }}
+        />
+        <Tabs.Screen
+          name="calendar"
+          options={{
+            href: null, // Hide this tab for unauthenticated users
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            href: null, // Hide this tab for unauthenticated users
+          }}
+        />
+      </Tabs>
+    );
   }
 
   return (
