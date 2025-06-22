@@ -1,62 +1,102 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Alert, RefreshControl, ScrollView, StyleSheet } from 'react-native';
 
 import LoadingScreen from '@/components/LoadingScreen';
+import ShowList from '@/components/ShowList';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useHomeScreenData } from '@/hooks/useHomeScreenData';
+import { TMDbShow } from '@/services/tmdb';
 
 export default function HomeScreen() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const {
+    trendingShows,
+    popularShows,
+    topRatedShows,
+    continueWatching,
+    loading: dataLoading,
+    error,
+  } = useHomeScreenData();
 
-  if (isLoading) {
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  if (authLoading) {
     return <LoadingScreen message="Initializing CueView..." />;
   }
 
+  const handleShowPress = (show: TMDbShow) => {
+    // TODO: Navigate to show details screen
+    Alert.alert('Show Details', `You tapped on "${show.name}". Show details screen coming soon!`);
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // The useHomeScreenData hook will reload data when user changes
+    setTimeout(() => setRefreshing(false), 1000);
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView 
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
       <ThemedView style={styles.header}>
         <ThemedText type="title">Welcome to CueView</ThemedText>
-        <ThemedText type="subtitle">Your TV Show Companion</ThemedText>
         {user && (
-          <ThemedText>Hello, {user.username}!</ThemedText>
+          <ThemedText type="subtitle">Hello, {user.username}! 👋</ThemedText>
         )}
       </ThemedView>
-      
-      <ThemedView style={styles.content}>
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold">Continue Watching</ThemedText>
-          <ThemedText>Pick up where you left off with your current shows</ThemedText>
-          <ThemedText style={styles.placeholder}>📺 No shows in progress</ThemedText>
-        </ThemedView>
 
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold">Upcoming Episodes</ThemedText>
-          <ThemedText>Don&apos;t miss the latest episodes of your favorite shows</ThemedText>
-          <ThemedText>Coming soon: Episode air date tracking</ThemedText>
-        </ThemedView>
+      {/* Continue Watching Section */}
+      {continueWatching.length > 0 && (
+        <ShowList
+          title="Continue Watching"
+          shows={continueWatching}
+          onShowPress={handleShowPress}
+          showProgress={true}
+        />
+      )}
 
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold">Trending Now</ThemedText>
-          <ThemedText>Discover what everyone is watching</ThemedText>
-          <ThemedText>Coming soon: Trending shows from TMDb</ThemedText>
-        </ThemedView>
+      {/* Trending Shows */}
+      <ShowList
+        title="Trending This Week"
+        shows={trendingShows}
+        onShowPress={handleShowPress}
+        loading={dataLoading}
+        error={error || undefined}
+      />
 
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
-          <ThemedText>• Shows in library: 0</ThemedText>
-          <ThemedText>• Episodes watched: Coming soon</ThemedText>
-          <ThemedText>• Watch time: Coming soon</ThemedText>
-        </ThemedView>
+      {/* Popular Shows */}
+      <ShowList
+        title="Popular Shows"
+        shows={popularShows}
+        onShowPress={handleShowPress}
+        loading={dataLoading}
+        error={error || undefined}
+      />
 
-        {!user && (
-          <ThemedView style={styles.section}>
-            <ThemedText type="defaultSemiBold">Get Started</ThemedText>
-            <ThemedText>Sign in to start tracking your favorite TV shows</ThemedText>
-            <ThemedText>Coming soon: Authentication screens</ThemedText>
-          </ThemedView>
-        )}
+      {/* Top Rated Shows */}
+      <ShowList
+        title="Top Rated"
+        shows={topRatedShows}
+        onShowPress={handleShowPress}
+        loading={dataLoading}
+        error={error || undefined}
+      />
+
+      {/* Quick Stats */}
+      <ThemedView style={styles.statsSection}>
+        <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
+        <ThemedText>• Shows in library: {continueWatching.length}</ThemedText>
+        <ThemedText>• Episodes watched: Coming soon</ThemedText>
+        <ThemedText>• Watch time: Coming soon</ThemedText>
       </ThemedView>
+
+      <ThemedView style={styles.bottomPadding} />
     </ScrollView>
   );
 }
@@ -70,19 +110,14 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     gap: 8,
   },
-  content: {
-    flex: 1,
-    padding: 20,
-    gap: 20,
-  },
-  section: {
-    gap: 8,
+  statsSection: {
     padding: 16,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 12,
+    margin: 16,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    gap: 8,
   },
-  placeholder: {
-    fontStyle: 'italic',
-    opacity: 0.7,
+  bottomPadding: {
+    height: 20,
   },
 });
