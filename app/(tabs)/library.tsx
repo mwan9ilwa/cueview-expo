@@ -222,7 +222,7 @@ export default function LibraryScreen() {
             </View>
           )}
           
-          <View style={styles.showsGrid}>
+          <View style={styles.showsList}>
             {shows.map((userShow) => (
               <ShowCard
                 key={userShow.id}
@@ -232,6 +232,7 @@ export default function LibraryScreen() {
                 onShowDetailsUpdated={handleShowDetailsUpdated}
                 showProgress={activeTab === 'watching'}
                 userId={user?.id}
+                layout="list"
               />
             ))}
           </View>
@@ -492,7 +493,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   showsContainer: {
-    padding: 5,
+    padding: 0,
+    
   },
   signInPrompt: {
     flex: 1,
@@ -541,7 +543,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   showsList: {
-    padding: 0,
+    paddingHorizontal: 5,
+    gap: 10,
+    // backgroundColor: 'rgba(0,0,0,0.02)',
   },
   showsGrid: {
     flexDirection: 'row',
