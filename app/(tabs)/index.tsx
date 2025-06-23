@@ -91,15 +91,6 @@ export default function HomeScreen() {
         error={error || undefined}
       />
 
-      {/* Quick Stats */}
-      <ThemedView style={styles.statsSection}>
-        <ThemedText type="defaultSemiBold">Quick Stats</ThemedText>
-        <ThemedText>• Shows in library: {stats.totalShows}</ThemedText>
-        <ThemedText>• Episodes watched: {stats.totalEpisodesWatched}</ThemedText>
-        <ThemedText>• Average rating: {stats.averageRating > 0 ? `⭐ ${stats.averageRating}` : 'Not rated yet'}</ThemedText>
-      </ThemedView>
-
-      <ThemedView style={styles.bottomPadding} />
     </ScrollView>
   );
 }

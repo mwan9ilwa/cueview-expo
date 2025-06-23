@@ -217,10 +217,12 @@ export const getShowStatusInfo = (show: TMDbShow | { status: string }) => {
   
   let statusText = '';
   let statusColor = '#999';
+  let isWaitingForRelease = false;
   
   switch (status) {
     case 'returning series':
-      statusText = 'Returning';
+    case 'on the air':
+      statusText = 'Ongoing';
       statusColor = '#34C759';
       break;
     case 'ended':
@@ -235,24 +237,32 @@ export const getShowStatusInfo = (show: TMDbShow | { status: string }) => {
     case 'in production':
       statusText = 'In Production';
       statusColor = '#FF9500';
+      isWaitingForRelease = true;
       break;
     case 'planned':
-      statusText = 'Planned';
+      statusText = 'Waiting for Release Date';
       statusColor = '#5856D6';
+      isWaitingForRelease = true;
       break;
     case 'pilot':
       statusText = 'Pilot';
       statusColor = '#AF52DE';
       break;
+    case 'post production':
+      statusText = 'Post Production';
+      statusColor = '#FF9500';
+      isWaitingForRelease = true;
+      break;
     default:
-      statusText = show.status;
+      statusText = show.status || 'Unknown';
       statusColor = '#999';
   }
   
   return {
     text: statusText,
     color: statusColor,
-    isActive: status === 'returning series' || status === 'in production',
+    isActive: status === 'returning series' || status === 'on the air',
+    isWaitingForRelease,
     inProduction: 'in_production' in show ? show.in_production : false,
   };
 };

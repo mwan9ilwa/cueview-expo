@@ -1,10 +1,11 @@
 import { formatCountdown, getNextEpisodeInfo, getShowStatusInfo } from '@/services/tmdb';
 import { UserShowWithDetails } from '@/types';
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
-import EpisodeProgressModal from './EpisodeProgressModal';
+import { Image, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import SeasonEpisodeModal from './SeasonEpisodeModal';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
+import { IconSymbol } from './ui/IconSymbol';
 
 interface EpisodeInfo {
   type: string;
@@ -46,15 +47,6 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
     }
   }, [showDetails, userShow.showId, userShow.currentSeason, userShow.currentEpisode, userShow.status]);
 
-  const formatDate = (dateString: string) => {
-    try {
-      if (!dateString) return '';
-      return new Date(dateString).getFullYear().toString();
-    } catch {
-      return '';
-    }
-  };
-
   const getProgressText = () => {
     if (!showProgress || !userShow.currentSeason || !userShow.currentEpisode) {
       return null;
@@ -79,19 +71,34 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
       onPress={() => onPress(userShow.showId)}
       activeOpacity={0.7}
     >
-      <ThemedView style={styles.card}>
+      <ThemedView style={[styles.card, Platform.OS === 'ios' ? styles.iosBox : styles.androidCard]}>
         {/* Poster Image */}
         <View style={styles.posterContainer}>
           {posterUrl ? (
             <Image source={{ uri: posterUrl }} style={styles.poster} />
           ) : (
             <View style={styles.placeholderPoster}>
-              <ThemedText style={styles.placeholderText}>📺</ThemedText>
+              <IconSymbol name="tv.fill" size={24} color="#999" />
             </View>
           )}
           
           {/* Status Indicator */}
           <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
+          
+          {/* Show Status Badge */}
+          {showStatusInfo && (
+            <View style={[styles.showStatusBadgeFloating, { backgroundColor: showStatusInfo.color }]}>
+              <IconSymbol 
+                name={
+                  showStatusInfo.isWaitingForRelease ? 'clock.fill' : 
+                  showStatusInfo.isActive ? 'tv.fill' : 
+                  showStatusInfo.text === 'Ended' || showStatusInfo.text === 'Canceled' ? 'flag.checkered.fill' : 'question.circle.fill'
+                } 
+                size={12} 
+                color="white" 
+              />
+            </View>
+          )}
         </View>
 
         {/* Show Information */}
@@ -99,29 +106,6 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
           <ThemedText type="defaultSemiBold" style={styles.title} numberOfLines={2}>
             {showDetails?.name || `Show #${userShow.showId}`}
           </ThemedText>
-          
-          <View style={styles.metadata}>
-            {showDetails?.first_air_date && (
-              <ThemedText style={styles.year}>
-                {formatDate(showDetails.first_air_date)}
-              </ThemedText>
-            )}
-            
-            {showDetails?.vote_average && showDetails.vote_average > 0 && (
-              <ThemedText style={styles.rating}>
-                ⭐ {showDetails.vote_average.toFixed(1)}
-              </ThemedText>
-            )}
-
-            {/* Show Status */}
-            {showStatusInfo && (
-              <View style={[styles.showStatusBadge, { backgroundColor: showStatusInfo.color + '20' }]}>
-                <ThemedText style={[styles.showStatusText, { color: showStatusInfo.color }]}>
-                  {showStatusInfo.text}
-                </ThemedText>
-              </View>
-            )}
-          </View>
 
           {/* Next Episode Info */}
           {nextEpisode && userShow.status === 'watching' && (
@@ -135,6 +119,36 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
             </View>
           )}
 
+          {/* Waiting for Release Date Info */}
+          {showStatusInfo?.isWaitingForRelease && (
+            <View style={styles.waitingContainer}>
+              <View style={styles.statusWithIcon}>
+                <IconSymbol name="clock.fill" size={14} color="#5856D6" />
+                <ThemedText style={styles.waitingTitle}>
+                  {showStatusInfo.text}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.waitingDate}>
+                Check back for updates!
+              </ThemedText>
+            </View>
+          )}
+
+          {/* Show Ended Info */}
+          {(showStatusInfo?.text === 'Ended' || showStatusInfo?.text === 'Canceled') && showDetails?.last_air_date && (
+            <View style={styles.endedContainer}>
+              <View style={styles.statusWithIcon}>
+                <IconSymbol name="flag.checkered.fill" size={14} color="#FF3B30" />
+                <ThemedText style={styles.endedTitle}>
+                  {showStatusInfo.text}
+                </ThemedText>
+              </View>
+              <ThemedText style={styles.endedDate}>
+                Last aired: {new Date(showDetails.last_air_date).getFullYear()}
+              </ThemedText>
+            </View>
+          )}
+
           {/* Loading next episode */}
           {loadingNext && userShow.status === 'watching' && (
             <View style={styles.nextEpisodeContainer}>
@@ -144,28 +158,14 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
 
           {/* Progress or Status */}
           <View style={styles.statusContainer}>
-            <ThemedText style={[styles.status, { color: getStatusColor() }]}>
-              {userShow.status.replace('-', ' ').toUpperCase()}
-            </ThemedText>
-            
-            {getProgressText() && (
-              <TouchableOpacity 
-                style={styles.progressButton}
-                onPress={() => setShowProgressModal(true)}
-              >
-                <ThemedText style={styles.progress}>
-                  {getProgressText()}
-                </ThemedText>
-              </TouchableOpacity>
-            )}
-
-            {showProgress && !getProgressText() && userShow.status === 'watching' && (
+            {/* Show track button for all shows when onUpdateProgress is available */}
+            {onUpdateProgress && !showProgress && (
               <TouchableOpacity 
                 style={styles.addProgressButton}
                 onPress={() => setShowProgressModal(true)}
               >
                 <ThemedText style={styles.addProgressText}>
-                  Add Progress
+                  Track
                 </ThemedText>
               </TouchableOpacity>
             )}
@@ -174,9 +174,14 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
           {/* User Rating */}
           {userShow.rating && (
             <View style={styles.userRating}>
-              <ThemedText style={styles.userRatingText}>
-                {'⭐'.repeat(userShow.rating)} ({userShow.rating}/5)
-              </ThemedText>
+              <View style={styles.ratingContainer}>
+                {Array.from({ length: userShow.rating }, (_, i) => (
+                  <IconSymbol key={i} name="star.fill" size={12} color="#FFD700" />
+                ))}
+                <ThemedText style={styles.ratingText}>
+                  ({userShow.rating}/5)
+                </ThemedText>
+              </View>
             </View>
           )}
 
@@ -196,18 +201,13 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
         </View>
       </ThemedView>
 
-      {/* Episode Progress Modal */}
+      {/* Season Episode Modal */}
       {showProgressModal && onUpdateProgress && (
-        <EpisodeProgressModal
+        <SeasonEpisodeModal
           visible={showProgressModal}
           onClose={() => setShowProgressModal(false)}
-          showName={showDetails?.name || `Show #${userShow.showId}`}
-          currentSeason={userShow.currentSeason || 1}
-          currentEpisode={userShow.currentEpisode || 0}
-          onUpdate={(season: number, episode: number) => {
-            onUpdateProgress(userShow.showId, season, episode);
-            setShowProgressModal(false);
-          }}
+          userShow={userShow}
+          onUpdateProgress={onUpdateProgress}
         />
       )}
     </TouchableOpacity>
@@ -216,33 +216,40 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 6,
+    marginVertical: 8,
+    marginHorizontal: 8, // Reduced to allow more width for cards
   },
   card: {
     flexDirection: 'row',
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    elevation: 3,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    // borderColor: 'rgba(0,0,0,0.08)',
+    // Remove fixed height constraints to let it match poster height
   },
   posterContainer: {
     position: 'relative',
   },
   poster: {
-    width: 80,
-    height: 120,
-    borderRadius: 8,
+    width: 90,   // Reduced from 120
+    height: 135, // Reduced from 180 (maintaining 2:3 aspect ratio)
+    borderRadius: 12,
   },
   placeholderPoster: {
-    width: 80,
-    height: 120,
-    borderRadius: 8,
-    backgroundColor: '#333',
+    width: 90,   // Reduced from 120
+    height: 135, // Reduced from 180
+    borderRadius: 12,
+    backgroundColor: '#f8f8f8',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   placeholderText: {
     fontSize: 24,
@@ -259,8 +266,10 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    padding: 12,
-    gap: 6,
+    padding: 10, // Increased back to 20 for taller cards
+    gap: 10, // Increased back to 10 for better spacing
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'space-between',
   },
   title: {
     fontSize: 16,
@@ -346,6 +355,15 @@ const styles = StyleSheet.create({
   userRating: {
     alignSelf: 'flex-start',
   },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 12,
+    marginLeft: 4,
+  },
   userRatingText: {
     fontSize: 12,
   },
@@ -361,6 +379,79 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.05)',
     padding: 6,
     borderRadius: 6,
+  },
+  showStatusBadgeFloating: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  showStatusTextFloating: {
+    fontSize: 12,
+    color: 'white',
+  },
+  waitingContainer: {
+    backgroundColor: 'rgba(88,86,214,0.1)',
+    padding: 8,
+    borderRadius: 8,
+    gap: 2,
+  },
+  waitingTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5856D6',
+  },
+  waitingDate: {
+    fontSize: 11,
+    color: '#5856D6',
+    opacity: 0.8,
+  },
+  endedContainer: {
+    backgroundColor: 'rgba(255,59,48,0.1)',
+    padding: 8,
+    borderRadius: 8,
+    gap: 2,
+  },
+  endedTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF3B30',
+  },
+  endedDate: {
+    fontSize: 11,
+    color: '#FF3B30',
+    opacity: 0.8,
+  },
+  statusWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // Platform-specific styles
+  iosBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 0, // Remove Android elevation for iOS
+  },
+  androidCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    elevation: 1,
+    shadowColor: 'transparent', // Remove iOS shadow for Android
   },
 });
 

@@ -54,12 +54,6 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
-          name="calendar"
-          options={{
-            href: null, // Hide calendar tab
-          }}
-        />
-        <Tabs.Screen
           name="profile"
           options={{
             href: null, // Hide this tab for unauthenticated users
@@ -103,12 +97,6 @@ export default function TabLayout() {
         options={{
           title: 'Discover',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="binoculars.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          href: null, // Hide calendar tab entirely
         }}
       />
       <Tabs.Screen

@@ -1,5 +1,6 @@
 import LoadingScreen from '@/components/LoadingScreen';
 import RatingNotesModal from '@/components/RatingNotesModal';
+import SeasonEpisodeModal from '@/components/SeasonEpisodeModal';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/SimpleAuthContext';
@@ -27,6 +28,7 @@ export default function ShowDetailsScreen() {
     getUserShowForShow,
     rateShow,
     addNoteToShow,
+    updateShowProgress,
   } = useUserLibrary();
   
   const [show, setShow] = useState<TMDbShow | null>(null);
@@ -36,6 +38,7 @@ export default function ShowDetailsScreen() {
   const [isInLibrary, setIsInLibrary] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [showRatingModal, setShowRatingModal] = useState(false);
+  const [showProgressModal, setShowProgressModal] = useState(false);
   const [userShow, setUserShow] = useState<any>(null);
 
   const loadShowDetails = React.useCallback(async () => {
@@ -86,9 +89,20 @@ export default function ShowDetailsScreen() {
       setIsInLibrary(true);
       setUserStatus(status);
       
+      // Update userShow to include the new show data
+      const newUserShow = await getUserShowForShow(show.id);
+      setUserShow(newUserShow);
+      
       Alert.alert(
         'Added to Library',
-        `${show.name} has been added to your ${status.replace('-', ' ')} list.`
+        `${show.name} has been added to your ${status.replace('-', ' ')} list. Would you like to track your progress?`,
+        [
+          { text: 'Later', style: 'cancel' },
+          {
+            text: 'Track Progress',
+            onPress: () => setShowProgressModal(true)
+          }
+        ]
       );
     } catch (error) {
       console.error('Error adding show to library:', error);
@@ -136,6 +150,18 @@ export default function ShowDetailsScreen() {
         },
       ]
     );
+  };
+
+  const handleUpdateProgress = async (showId: number, season: number, episode: number) => {
+    try {
+      await updateShowProgress(showId, season, episode);
+      // Refresh user show data
+      const updatedUserShow = await getUserShowForShow(showId);
+      setUserShow(updatedUserShow);
+    } catch (error) {
+      console.error('Error updating progress:', error);
+      Alert.alert('Error', 'Failed to update progress. Please try again.');
+    }
   };
 
   const handleRatingNotesUpdate = async (rating?: number, notes?: string) => {
@@ -388,6 +414,16 @@ export default function ShowDetailsScreen() {
           showName={show.name || 'Unknown Show'}
           currentRating={userShow?.rating}
           currentNotes={userShow?.notes}
+        />
+      )}
+
+      {/* Season Episode Progress Modal */}
+      {userShow && (
+        <SeasonEpisodeModal
+          visible={showProgressModal}
+          onClose={() => setShowProgressModal(false)}
+          userShow={userShow}
+          onUpdateProgress={handleUpdateProgress}
         />
       )}
     </ScrollView>
