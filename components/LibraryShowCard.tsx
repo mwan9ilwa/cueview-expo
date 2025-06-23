@@ -54,15 +54,6 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
     return `S${userShow.currentSeason}E${userShow.currentEpisode}`;
   };
 
-  const getStatusColor = () => {
-    switch (userShow.status) {
-      case 'watching': return '#34C759';
-      case 'want-to-watch': return '#FF9500';
-      case 'watched': return '#007AFF';
-      default: return '#999';
-    }
-  };
-
   const showStatusInfo = showDetails ? getShowStatusInfo(showDetails) : null;
 
   return (
@@ -82,14 +73,12 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
             </View>
           )}
           
-          {/* Status Indicator */}
-          <View style={[styles.statusDot, { backgroundColor: getStatusColor() }]} />
-          
           {/* Show Status Badge */}
           {showStatusInfo && (
             <View style={[styles.showStatusBadgeFloating, { backgroundColor: showStatusInfo.color }]}>
               <IconSymbol 
                 name={
+                  showStatusInfo.isBetweenSeasons ? 'pause.circle.fill' :
                   showStatusInfo.isWaitingForRelease ? 'clock.fill' : 
                   showStatusInfo.isActive ? 'tv.fill' : 
                   showStatusInfo.text === 'Ended' || showStatusInfo.text === 'Canceled' ? 'flag.checkered.fill' : 'question.circle.fill'
@@ -120,7 +109,7 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
           )}
 
           {/* Waiting for Release Date Info */}
-          {showStatusInfo?.isWaitingForRelease && (
+          {showStatusInfo?.isWaitingForRelease && !showStatusInfo?.isBetweenSeasons && (
             <View style={styles.waitingContainer}>
               <View style={styles.statusWithIcon}>
                 <IconSymbol name="clock.fill" size={14} color="#5856D6" />
@@ -156,20 +145,20 @@ function LibraryShowCard({ userShow, onPress, onUpdateProgress, showProgress }: 
             </View>
           )}
 
-          {/* Progress or Status */}
-          <View style={styles.statusContainer}>
-            {/* Show track button for all shows when onUpdateProgress is available */}
-            {onUpdateProgress && !showProgress && (
-              <TouchableOpacity 
-                style={styles.addProgressButton}
-                onPress={() => setShowProgressModal(true)}
-              >
-                <ThemedText style={styles.addProgressText}>
-                  Track
+          {/* Episode management button for all shows */}
+          {onUpdateProgress && (
+            <TouchableOpacity 
+              style={styles.manageEpisodesButton}
+              onPress={() => setShowProgressModal(true)}
+            >
+              <View style={styles.manageButtonContent}>
+                <IconSymbol name="tv.fill" size={14} color="#5856D6" />
+                <ThemedText style={styles.manageEpisodesText}>
+                  Manage Episodes
                 </ThemedText>
-              </TouchableOpacity>
-            )}
-          </View>
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* User Rating */}
           {userShow.rating && (
@@ -238,12 +227,12 @@ const styles = StyleSheet.create({
   },
   poster: {
     width: 90,   // Reduced from 120
-    height: 135, // Reduced from 180 (maintaining 2:3 aspect ratio)
+    height: 145, // Reduced from 180 (maintaining 2:3 aspect ratio)
     borderRadius: 12,
   },
   placeholderPoster: {
     width: 90,   // Reduced from 120
-    height: 135, // Reduced from 180
+    height: 145, // Reduced from 180
     borderRadius: 12,
     backgroundColor: '#f8f8f8',
     justifyContent: 'center',
@@ -253,16 +242,6 @@ const styles = StyleSheet.create({
   },
   placeholderText: {
     fontSize: 24,
-  },
-  statusDot: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: 'white',
   },
   info: {
     flex: 1,
@@ -301,12 +280,11 @@ const styles = StyleSheet.create({
   },
   nextEpisodeContainer: {
     backgroundColor: 'rgba(52,199,89,0.1)',
-    padding: 8,
+    padding: 5,
     borderRadius: 8,
-    gap: 2,
   },
   nextEpisodeTitle: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
     color: '#34C759',
   },
@@ -320,37 +298,26 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     opacity: 0.6,
   },
-  statusContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  status: {
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 0.5,
-  },
   progress: {
     fontSize: 12,
     fontWeight: '600',
     color: '#007AFF',
   },
-  progressButton: {
-    backgroundColor: 'rgba(0,122,255,0.1)',
-    paddingHorizontal: 8,
+  manageEpisodesButton: {
+    backgroundColor: 'rgba(88,86,214,0.1)',
+    paddingHorizontal: 5,
     paddingVertical: 2,
-    borderRadius: 12,
+    borderRadius: 8,
   },
-  addProgressButton: {
-    backgroundColor: 'rgba(52,199,89,0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
+  manageButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  addProgressText: {
-    fontSize: 12,
+  manageEpisodesText: {
+    fontSize: 10,
     fontWeight: '600',
-    color: '#34C759',
+    color: '#5856D6',
   },
   userRating: {
     alignSelf: 'flex-start',
@@ -410,6 +377,22 @@ const styles = StyleSheet.create({
   waitingDate: {
     fontSize: 11,
     color: '#5856D6',
+    opacity: 0.8,
+  },
+  betweenSeasonsContainer: {
+    backgroundColor: 'rgba(255,149,0,0.1)',
+    padding: 8,
+    borderRadius: 8,
+    gap: 2,
+  },
+  betweenSeasonsTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF9500',
+  },
+  betweenSeasonsDate: {
+    fontSize: 11,
+    color: '#FF9500',
     opacity: 0.8,
   },
   endedContainer: {

@@ -38,10 +38,12 @@ const MAPPING = {
   // Show status icons
   'tv.fill': 'tv',
   'play.circle.fill': 'play-circle-filled',
+  'pause.circle.fill': 'pause-circle-filled',
   'clock.fill': 'schedule',
   'flag.checkered.fill': 'flag',
   'question.circle.fill': 'help',
   'film.fill': 'movie',
+  'checkmark.circle.fill': 'check-circle',
 } as IconMapping;
 
 /**

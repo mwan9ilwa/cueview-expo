@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { TMDbShow } from '@/services/tmdb';
 import React from 'react';
 import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -39,7 +40,7 @@ export default function ShowCard({ show, onPress, showProgress = false, progress
           />
         ) : (
           <View style={styles.placeholderPoster}>
-            <ThemedText style={styles.placeholderText}>📺</ThemedText>
+            <IconSymbol name="tv.fill" size={24} color="#999" />
           </View>
         )}
         
@@ -58,8 +59,9 @@ export default function ShowCard({ show, onPress, showProgress = false, progress
           {formatDate(show.first_air_date)}
         </ThemedText>
         <View style={styles.ratingContainer}>
+          <IconSymbol name="star.fill" size={12} color="#FFD700" />
           <ThemedText style={styles.rating}>
-            ⭐ {show.vote_average.toFixed(1)}
+            {show.vote_average.toFixed(1)}
           </ThemedText>
         </View>
       </ThemedView>
@@ -121,6 +123,9 @@ const styles = StyleSheet.create({
   },
   ratingContainer: {
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   rating: {
     fontSize: 12,

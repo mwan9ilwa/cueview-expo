@@ -5,6 +5,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
+import { getShowStatusInfo } from '@/services/tmdb';
 import { UserShowWithDetails } from '@/types';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { router } from 'expo-router';
@@ -20,7 +21,6 @@ export default function LibraryScreen() {
     watchingShowsWithDetails, 
     wantToWatchShowsWithDetails, 
     watchedShowsWithDetails, 
-    stats, 
     loading, 
     error, 
     refreshLibrary,
@@ -81,6 +81,7 @@ export default function LibraryScreen() {
   const groupShowsByStatus = (shows: UserShowWithDetails[]) => {
     const groups = {
       active: [] as UserShowWithDetails[], // Currently airing/returning
+      betweenSeasons: [] as UserShowWithDetails[], // Between seasons (waiting for renewal/new season)
       upcoming: [] as UserShowWithDetails[], // Waiting for release/in production
       ended: [] as UserShowWithDetails[], // Completed/canceled
       unknown: [] as UserShowWithDetails[], // Unknown status
@@ -93,10 +94,13 @@ export default function LibraryScreen() {
       }
 
       const status = show.showDetails.status?.toLowerCase() || '';
+      const statusInfo = getShowStatusInfo(show.showDetails);
       
-      if (status === 'returning series' || status === 'on the air') {
+      if (statusInfo.isBetweenSeasons) {
+        groups.betweenSeasons.push(show);
+      } else if (status === 'returning series' || status === 'on the air') {
         groups.active.push(show);
-      } else if (status === 'in production' || status === 'planned' || status === 'pilot') {
+      } else if (status === 'in production' || status === 'planned' || status === 'pilot' || status === 'post production') {
         groups.upcoming.push(show);
       } else if (status === 'ended' || status === 'canceled' || status === 'cancelled') {
         groups.ended.push(show);
@@ -152,7 +156,7 @@ export default function LibraryScreen() {
   const tabs: { key: LibraryTab; label: string; color: string; icon: string }[] = [
     { key: 'watching', label: 'Watching', color: '#34C759', icon: 'tv.fill' },
     { key: 'want-to-watch', label: 'Watchlist', color: '#FF9500', icon: 'plus' },
-    { key: 'watched', label: 'Completed', color: '#007AFF', icon: 'checkmark' },
+    { key: 'watched', label: 'Watched', color: '#007AFF', icon: 'checkmark' },
   ];
 
   const segmentedControlValues = tabs.map(tab => tab.label);
@@ -236,8 +240,11 @@ export default function LibraryScreen() {
           {/* Active Shows - no title, just shows */}
           {renderShowGroup(null, groupedShows.active, '#34C759', 'tv.fill')}
           
+          {/* Between Seasons Shows */}
+          {renderShowGroup('Between Seasons', groupedShows.betweenSeasons, '#FF9500', 'pause.circle.fill')}
+          
           {/* Upcoming Shows */}
-          {renderShowGroup('Upcoming & In Production', groupedShows.upcoming, '#FF9500', 'clock.fill')}
+          {renderShowGroup('Upcoming & In Production', groupedShows.upcoming, '#5856D6', 'clock.fill')}
           
           {/* Ended Shows */}
           {renderShowGroup('Completed', groupedShows.ended, '#FF3B30', 'checkmark.circle.fill')}
@@ -286,9 +293,16 @@ export default function LibraryScreen() {
               onPress={handleSyncToCloud}
               disabled={syncing}
             >
-              <ThemedText style={styles.syncButtonText}>
-                {syncing ? '⏳' : '☁️ ↑'}
-              </ThemedText>
+              <View style={styles.syncButtonContent}>
+                {syncing ? (
+                  <IconSymbol name="clock.fill" size={14} color="#007AFF" />
+                ) : (
+                  <>
+                    <IconSymbol name="icloud.fill" size={12} color="#007AFF" />
+                    <IconSymbol name="arrow.up" size={10} color="#007AFF" />
+                  </>
+                )}
+              </View>
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -296,17 +310,27 @@ export default function LibraryScreen() {
               onPress={handleSyncFromCloud}
               disabled={syncing}
             >
-              <ThemedText style={styles.syncButtonText}>
-                {syncing ? '⏳' : '☁️ ↓'}
-              </ThemedText>
+              <View style={styles.syncButtonContent}>
+                {syncing ? (
+                  <IconSymbol name="clock.fill" size={14} color="#007AFF" />
+                ) : (
+                  <>
+                    <IconSymbol name="icloud.fill" size={12} color="#007AFF" />
+                    <IconSymbol name="arrow.down" size={10} color="#007AFF" />
+                  </>
+                )}
+              </View>
             </TouchableOpacity>
           </View>
         </View>
         
         {error && (
-          <ThemedText style={styles.errorText}>
-            ⚠️ {error}
-          </ThemedText>
+          <View style={styles.errorContainer}>
+            <IconSymbol name="exclamationmark.triangle.fill" size={14} color="#FF3B30" />
+            <ThemedText style={styles.errorText}>
+              {error}
+            </ThemedText>
+          </View>
         )}
       </ThemedView>
 
@@ -365,6 +389,11 @@ const styles = StyleSheet.create({
   syncButtonDisabled: {
     opacity: 0.5,
   },
+  syncButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
   syncButtonText: {
     fontSize: 16,
     color: '#007AFF',
@@ -374,13 +403,18 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     textAlign: 'center',
   },
-  errorText: {
-    fontSize: 12,
-    color: '#FF3B30',
-    textAlign: 'center',
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(255, 59, 48, 0.1)',
     padding: 8,
     borderRadius: 6,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#FF3B30',
+    flex: 1,
   },
   subtitle: {
     opacity: 0.8,

@@ -218,12 +218,31 @@ export const getShowStatusInfo = (show: TMDbShow | { status: string }) => {
   let statusText = '';
   let statusColor = '#999';
   let isWaitingForRelease = false;
+  let isBetweenSeasons = false;
+  
+  // Check if show is potentially between seasons
+  if ('last_air_date' in show && show.last_air_date) {
+    const lastAirDate = new Date(show.last_air_date);
+    const now = new Date();
+    const monthsSinceLastEpisode = (now.getTime() - lastAirDate.getTime()) / (1000 * 60 * 60 * 24 * 30);
+    
+    // If it's been more than 3 months since last episode and status is still "returning series"
+    if (monthsSinceLastEpisode > 3 && (status === 'returning series' || status === 'on the air')) {
+      isBetweenSeasons = true;
+    }
+  }
   
   switch (status) {
     case 'returning series':
     case 'on the air':
-      statusText = 'Ongoing';
-      statusColor = '#34C759';
+      if (isBetweenSeasons) {
+        statusText = 'Between Seasons';
+        statusColor = '#FF9500';
+        isWaitingForRelease = true;
+      } else {
+        statusText = 'Ongoing';
+        statusColor = '#34C759';
+      }
       break;
     case 'ended':
       statusText = 'Ended';
@@ -261,9 +280,11 @@ export const getShowStatusInfo = (show: TMDbShow | { status: string }) => {
   return {
     text: statusText,
     color: statusColor,
-    isActive: status === 'returning series' || status === 'on the air',
+    isActive: (status === 'returning series' || status === 'on the air') && !isBetweenSeasons,
     isWaitingForRelease,
+    isBetweenSeasons,
     inProduction: 'in_production' in show ? show.in_production : false,
+    lastAirDate: 'last_air_date' in show ? show.last_air_date : null,
   };
 };
 
@@ -287,5 +308,25 @@ export const formatCountdown = (airDate: string): string => {
   } else {
     const months = Math.floor(diffDays / 30);
     return `Airs in ${months} month${months > 1 ? 's' : ''}`;
+  }
+};
+
+export const formatLastAired = (lastAirDate: string): string => {
+  const now = new Date();
+  const lastAired = new Date(lastAirDate);
+  const diff = now.getTime() - lastAired.getTime();
+  
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+  
+  if (years > 0) {
+    return `${years} year${years > 1 ? 's' : ''} ago`;
+  } else if (months > 0) {
+    return `${months} month${months > 1 ? 's' : ''} ago`;
+  } else if (days > 0) {
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  } else {
+    return 'Recently';
   }
 };

@@ -3,6 +3,7 @@ import RatingNotesModal from '@/components/RatingNotesModal';
 import SeasonEpisodeModal from '@/components/SeasonEpisodeModal';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { tmdbService, TMDbShow } from '@/services/tmdb';
@@ -264,9 +265,12 @@ export default function ShowDetailsScreen() {
               <ThemedText style={styles.year}>
                 {formatDate(show.first_air_date || '')} • {show.status || 'Unknown'}
               </ThemedText>
-              <ThemedText style={styles.rating}>
-                ⭐ {show.vote_average?.toFixed(1) || 'N/A'} ({show.vote_count || 0} votes)
-              </ThemedText>
+              <View style={styles.ratingInfo}>
+                <IconSymbol name="star.fill" size={14} color="#FFD700" />
+                <ThemedText style={styles.rating}>
+                  {show.vote_average?.toFixed(1) || 'N/A'} ({show.vote_count || 0} votes)
+                </ThemedText>
+              </View>
               <ThemedText style={styles.episodes}>
                 {show.number_of_seasons || 0} seasons • {show.number_of_episodes || 0} episodes
               </ThemedText>
@@ -290,13 +294,29 @@ export default function ShowDetailsScreen() {
             
             <View style={styles.libraryActionsContainer}>
               <TouchableOpacity 
+                style={[styles.actionButton, styles.manageEpisodesButton]}
+                onPress={() => setShowProgressModal(true)}
+                disabled={actionLoading}
+              >
+                <View style={styles.buttonContent}>
+                  <IconSymbol name="tv.fill" size={16} color="white" />
+                  <ThemedText style={styles.actionButtonText}>
+                    Manage Episodes
+                  </ThemedText>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
                 style={[styles.actionButton, styles.rateButton]}
                 onPress={() => setShowRatingModal(true)}
                 disabled={actionLoading}
               >
-                <ThemedText style={styles.actionButtonText}>
-                  {userShow?.rating ? `⭐ ${userShow.rating}` : '⭐ Rate'}
-                </ThemedText>
+                <View style={styles.buttonContent}>
+                  <IconSymbol name="star.fill" size={16} color="white" />
+                  <ThemedText style={styles.actionButtonText}>
+                    {userShow?.rating ? `${userShow.rating}` : 'Rate'}
+                  </ThemedText>
+                </View>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -481,6 +501,11 @@ const styles = StyleSheet.create({
   metaInfo: {
     gap: 4,
   },
+  ratingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   year: {
     fontSize: 14,
     opacity: 0.8,
@@ -558,6 +583,14 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  manageEpisodesButton: {
+    backgroundColor: '#5856D6',
   },
   rateButton: {
     backgroundColor: '#FF9500',

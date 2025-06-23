@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
+import { IconSymbol } from './ui/IconSymbol';
 
 interface RatingNotesModalProps {
   visible: boolean;
@@ -62,19 +63,17 @@ export default function RatingNotesModal(props: RatingNotesModalProps) {
   const renderStars = () => {
     return (
       <View style={styles.starsContainer}>
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity
-            key={star}
-            onPress={() => handleStarPress(star)}
-            style={styles.starButton}
-          >
-            <ThemedText style={[
-              styles.star,
-              rating && star <= rating ? styles.starFilled : null
-            ]}>
-              ⭐
-            </ThemedText>
-          </TouchableOpacity>
+        {[1, 2, 3, 4, 5].map((star) => (            <TouchableOpacity
+              key={star}
+              onPress={() => handleStarPress(star)}
+              style={styles.starButton}
+            >
+              <IconSymbol 
+                name="star.fill" 
+                size={24} 
+                color={rating && star <= rating ? '#FFD700' : '#E0E0E0'} 
+              />
+            </TouchableOpacity>
         ))}
       </View>
     );
