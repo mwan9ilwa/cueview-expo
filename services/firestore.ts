@@ -40,11 +40,24 @@ export class FirestoreService {
         status: userShow.status,
         addedAt: Timestamp.fromDate(userShow.addedAt),
         updatedAt: serverTimestamp(),
-        // Convert watched episodes dates
+        // Convert watched episodes dates and handle undefined fields
         watchedEpisodes: userShow.watchedEpisodes.map(episode => ({
-          ...episode,
+          seasonNumber: episode.seasonNumber,
+          episodeNumber: episode.episodeNumber,
           watchedAt: Timestamp.fromDate(episode.watchedAt),
+          ...(episode.rewatch !== undefined && { rewatch: episode.rewatch }),
+          ...(episode.rating !== undefined && { rating: episode.rating }),
+          ...(episode.notes !== undefined && { notes: episode.notes }),
         })),
+        // Enhanced tracking fields
+        totalRewatches: userShow.totalRewatches || 0,
+        favoriteEpisodes: userShow.favoriteEpisodes || [],
+        totalWatchTimeMinutes: userShow.totalWatchTimeMinutes || 0,
+        reminderSettings: userShow.reminderSettings || {
+          enabled: false,
+          notifyOnNewEpisodes: false,
+          notifyOnNewSeasons: false,
+        },
       };
 
       // Only add optional fields if they have values (not undefined)
@@ -59,6 +72,18 @@ export class FirestoreService {
       }
       if (userShow.currentEpisode !== undefined) {
         showData.currentEpisode = userShow.currentEpisode;
+      }
+      if (userShow.startedWatchingAt !== undefined) {
+        showData.startedWatchingAt = Timestamp.fromDate(userShow.startedWatchingAt);
+      }
+      if (userShow.completedAt !== undefined) {
+        showData.completedAt = Timestamp.fromDate(userShow.completedAt);
+      }
+      if (userShow.lastWatchedAt !== undefined) {
+        showData.lastWatchedAt = Timestamp.fromDate(userShow.lastWatchedAt);
+      }
+      if (userShow.averageEpisodeRating !== undefined) {
+        showData.averageEpisodeRating = userShow.averageEpisodeRating;
       }
 
       await setDoc(userShowRef, showData, { merge: true });
@@ -99,9 +124,26 @@ export class FirestoreService {
           updatedAt: data.updatedAt?.toDate() || new Date(),
           // Convert watched episodes timestamps back to dates
           watchedEpisodes: data.watchedEpisodes?.map((episode: any) => ({
-            ...episode,
+            seasonNumber: episode.seasonNumber,
+            episodeNumber: episode.episodeNumber,
             watchedAt: episode.watchedAt.toDate(),
+            rewatch: episode.rewatch || false,
+            rating: episode.rating,
+            notes: episode.notes,
           })) || [],
+          // Enhanced tracking fields with defaults
+          startedWatchingAt: data.startedWatchingAt?.toDate(),
+          completedAt: data.completedAt?.toDate(),
+          lastWatchedAt: data.lastWatchedAt?.toDate(),
+          totalRewatches: data.totalRewatches || 0,
+          favoriteEpisodes: data.favoriteEpisodes || [],
+          reminderSettings: data.reminderSettings || {
+            enabled: false,
+            notifyOnNewEpisodes: false,
+            notifyOnNewSeasons: false,
+          },
+          totalWatchTimeMinutes: data.totalWatchTimeMinutes || 0,
+          averageEpisodeRating: data.averageEpisodeRating,
         });
       });
 
@@ -146,9 +188,26 @@ export class FirestoreService {
           addedAt: data.addedAt.toDate(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
           watchedEpisodes: data.watchedEpisodes?.map((episode: any) => ({
-            ...episode,
+            seasonNumber: episode.seasonNumber,
+            episodeNumber: episode.episodeNumber,
             watchedAt: episode.watchedAt.toDate(),
+            rewatch: episode.rewatch || false,
+            rating: episode.rating,
+            notes: episode.notes,
           })) || [],
+          // Enhanced tracking fields with defaults
+          startedWatchingAt: data.startedWatchingAt?.toDate(),
+          completedAt: data.completedAt?.toDate(),
+          lastWatchedAt: data.lastWatchedAt?.toDate(),
+          totalRewatches: data.totalRewatches || 0,
+          favoriteEpisodes: data.favoriteEpisodes || [],
+          reminderSettings: data.reminderSettings || {
+            enabled: false,
+            notifyOnNewEpisodes: false,
+            notifyOnNewSeasons: false,
+          },
+          totalWatchTimeMinutes: data.totalWatchTimeMinutes || 0,
+          averageEpisodeRating: data.averageEpisodeRating,
         };
       }
 
@@ -184,9 +243,26 @@ export class FirestoreService {
           addedAt: data.addedAt.toDate(),
           updatedAt: data.updatedAt?.toDate() || new Date(),
           watchedEpisodes: data.watchedEpisodes?.map((episode: any) => ({
-            ...episode,
+            seasonNumber: episode.seasonNumber,
+            episodeNumber: episode.episodeNumber,
             watchedAt: episode.watchedAt.toDate(),
+            rewatch: episode.rewatch || false,
+            rating: episode.rating,
+            notes: episode.notes,
           })) || [],
+          // Enhanced tracking fields with defaults
+          startedWatchingAt: data.startedWatchingAt?.toDate(),
+          completedAt: data.completedAt?.toDate(),
+          lastWatchedAt: data.lastWatchedAt?.toDate(),
+          totalRewatches: data.totalRewatches || 0,
+          favoriteEpisodes: data.favoriteEpisodes || [],
+          reminderSettings: data.reminderSettings || {
+            enabled: false,
+            notifyOnNewEpisodes: false,
+            notifyOnNewSeasons: false,
+          },
+          totalWatchTimeMinutes: data.totalWatchTimeMinutes || 0,
+          averageEpisodeRating: data.averageEpisodeRating,
         });
       });
 
@@ -240,21 +316,140 @@ export class FirestoreService {
 
       userShows.forEach((userShow) => {
         const userShowRef = doc(this.getUserShowsCollection(userShow.userId), userShow.id);
-        const showData = {
-          ...userShow,
+        
+        // Convert data properly to avoid undefined values
+        const showData: any = {
+          id: userShow.id,
+          userId: userShow.userId,
+          showId: userShow.showId,
+          status: userShow.status,
           addedAt: Timestamp.fromDate(userShow.addedAt),
           updatedAt: serverTimestamp(),
           watchedEpisodes: userShow.watchedEpisodes.map(episode => ({
-            ...episode,
+            seasonNumber: episode.seasonNumber,
+            episodeNumber: episode.episodeNumber,
             watchedAt: Timestamp.fromDate(episode.watchedAt),
+            ...(episode.rewatch !== undefined && { rewatch: episode.rewatch }),
+            ...(episode.rating !== undefined && { rating: episode.rating }),
+            ...(episode.notes !== undefined && { notes: episode.notes }),
           })),
+          // Enhanced tracking fields
+          totalRewatches: userShow.totalRewatches || 0,
+          favoriteEpisodes: userShow.favoriteEpisodes || [],
+          totalWatchTimeMinutes: userShow.totalWatchTimeMinutes || 0,
+          reminderSettings: userShow.reminderSettings || {
+            enabled: false,
+            notifyOnNewEpisodes: false,
+            notifyOnNewSeasons: false,
+          },
         };
+
+        // Only add optional fields if they have values (not undefined)
+        if (userShow.rating !== undefined) {
+          showData.rating = userShow.rating;
+        }
+        if (userShow.notes !== undefined) {
+          showData.notes = userShow.notes;
+        }
+        if (userShow.currentSeason !== undefined) {
+          showData.currentSeason = userShow.currentSeason;
+        }
+        if (userShow.currentEpisode !== undefined) {
+          showData.currentEpisode = userShow.currentEpisode;
+        }
+        if (userShow.startedWatchingAt !== undefined) {
+          showData.startedWatchingAt = Timestamp.fromDate(userShow.startedWatchingAt);
+        }
+        if (userShow.completedAt !== undefined) {
+          showData.completedAt = Timestamp.fromDate(userShow.completedAt);
+        }
+        if (userShow.lastWatchedAt !== undefined) {
+          showData.lastWatchedAt = Timestamp.fromDate(userShow.lastWatchedAt);
+        }
+        if (userShow.averageEpisodeRating !== undefined) {
+          showData.averageEpisodeRating = userShow.averageEpisodeRating;
+        }
+
         batch.set(userShowRef, showData, { merge: true });
       });
 
       await batch.commit();
     } catch (error) {
       console.error('Error batch saving user shows to Firestore:', error);
+      throw error;
+    }
+  }
+
+  // Batch operations for better performance
+  async batchUpdateUserShows(userId: string, updates: { userShow: UserShow; operation: 'save' | 'delete' }[]): Promise<void> {
+    try {
+      const batch = writeBatch(db);
+      
+      updates.forEach(({ userShow, operation }) => {
+        const userShowRef = doc(this.getUserShowsCollection(userId), userShow.id);
+        
+        if (operation === 'delete') {
+          batch.delete(userShowRef);
+        } else {
+          const showData: any = {
+            id: userShow.id,
+            userId: userShow.userId,
+            showId: userShow.showId,
+            status: userShow.status,
+            addedAt: Timestamp.fromDate(userShow.addedAt),
+            updatedAt: serverTimestamp(),
+            watchedEpisodes: userShow.watchedEpisodes.map(episode => ({
+              seasonNumber: episode.seasonNumber,
+              episodeNumber: episode.episodeNumber,
+              watchedAt: Timestamp.fromDate(episode.watchedAt),
+              ...(episode.rewatch !== undefined && { rewatch: episode.rewatch }),
+              ...(episode.rating !== undefined && { rating: episode.rating }),
+              ...(episode.notes !== undefined && { notes: episode.notes }),
+            })),
+            // Enhanced tracking fields
+            totalRewatches: userShow.totalRewatches || 0,
+            favoriteEpisodes: userShow.favoriteEpisodes || [],
+            totalWatchTimeMinutes: userShow.totalWatchTimeMinutes || 0,
+            reminderSettings: userShow.reminderSettings || {
+              enabled: false,
+              notifyOnNewEpisodes: false,
+              notifyOnNewSeasons: false,
+            },
+          };
+
+          // Only add optional fields if they have values (not undefined)
+          if (userShow.rating !== undefined) {
+            showData.rating = userShow.rating;
+          }
+          if (userShow.notes !== undefined) {
+            showData.notes = userShow.notes;
+          }
+          if (userShow.currentSeason !== undefined) {
+            showData.currentSeason = userShow.currentSeason;
+          }
+          if (userShow.currentEpisode !== undefined) {
+            showData.currentEpisode = userShow.currentEpisode;
+          }
+          if (userShow.startedWatchingAt !== undefined) {
+            showData.startedWatchingAt = Timestamp.fromDate(userShow.startedWatchingAt);
+          }
+          if (userShow.completedAt !== undefined) {
+            showData.completedAt = Timestamp.fromDate(userShow.completedAt);
+          }
+          if (userShow.lastWatchedAt !== undefined) {
+            showData.lastWatchedAt = Timestamp.fromDate(userShow.lastWatchedAt);
+          }
+          if (userShow.averageEpisodeRating !== undefined) {
+            showData.averageEpisodeRating = userShow.averageEpisodeRating;
+          }
+
+          batch.set(userShowRef, showData, { merge: true });
+        }
+      });
+      
+      await batch.commit();
+    } catch (error: any) {
+      console.error('Error in batch update:', error);
       throw error;
     }
   }

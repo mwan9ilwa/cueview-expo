@@ -1,15 +1,15 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { notificationService } from '@/services/notifications';
-import React, { useState } from 'react';
+import React from 'react';
 import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { stats, watchingShowsWithDetails, wantToWatchShowsWithDetails, watchedShowsWithDetails } = useUserLibrary();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -39,7 +39,6 @@ export default function ProfileScreen() {
       if (hasPermissions) {
         // Schedule notifications for all watching shows
         await notificationService.scheduleNotificationsForWatchingShows(watchingShowsWithDetails);
-        setNotificationsEnabled(true);
         
         Alert.alert(
           'Notifications Enabled!',
@@ -62,7 +61,6 @@ export default function ProfileScreen() {
   const handleDisableNotifications = async () => {
     try {
       await notificationService.clearAllNotifications();
-      setNotificationsEnabled(false);
       
       Alert.alert(
         'Notifications Disabled',
@@ -147,7 +145,9 @@ export default function ProfileScreen() {
         </ThemedView>
         
         <ThemedView style={styles.signInPrompt}>
-          <ThemedText style={styles.signInIcon}>👤</ThemedText>
+          <View style={styles.signInIconContainer}>
+            <IconSymbol name="person.fill" size={48} color="#999" />
+          </View>
           <ThemedText type="subtitle" style={styles.signInTitle}>
             Sign In Required
           </ThemedText>
@@ -171,11 +171,20 @@ export default function ProfileScreen() {
         <ThemedView style={styles.section}>
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Account Information</ThemedText>
           <View style={styles.accountInfo}>
-            <ThemedText style={styles.accountDetail}>📧 {user.email}</ThemedText>
-            <ThemedText style={styles.accountDetail}>👤 {user.username}</ThemedText>
-            <ThemedText style={styles.accountDetail}>
-              📅 Member since {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'today'}
-            </ThemedText>
+            <View style={styles.accountDetailItem}>
+              <IconSymbol name="envelope.fill" size={16} color="#5856D6" />
+              <ThemedText style={styles.accountDetailText}>{user.email}</ThemedText>
+            </View>
+            <View style={styles.accountDetailItem}>
+              <IconSymbol name="person.fill" size={16} color="#5856D6" />
+              <ThemedText style={styles.accountDetailText}>{user.username}</ThemedText>
+            </View>
+            <View style={styles.accountDetailItem}>
+              <IconSymbol name="calendar" size={16} color="#5856D6" />
+              <ThemedText style={styles.accountDetailText}>
+                Member since {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'today'}
+              </ThemedText>
+            </View>
           </View>
         </ThemedView>
 
@@ -260,15 +269,21 @@ export default function ProfileScreen() {
                 style={[styles.notificationButton, styles.testButton]}
                 onPress={handleTestNotification}
               >
-                <ThemedText style={styles.testButtonText}>
-                  🧪 Send Test Notification
-                </ThemedText>
+                <View style={styles.testButtonContent}>
+                  <IconSymbol name="flask.fill" size={16} color="#5856D6" />
+                  <ThemedText style={styles.testButtonText}>
+                    Send Test Notification
+                  </ThemedText>
+                </View>
               </TouchableOpacity>
             </View>
             
-            <ThemedText style={styles.notificationNote}>
-              📱 Notifications for {watchingShowsWithDetails.length} shows in your watching list
-            </ThemedText>
+            <View style={styles.notificationNote}>
+              <IconSymbol name="bell.fill" size={16} color="#5856D6" />
+              <ThemedText style={styles.notificationNoteText}>
+                Notifications for {watchingShowsWithDetails.length} shows in your watching list
+              </ThemedText>
+            </View>
           </View>
         </ThemedView>
 
@@ -325,6 +340,16 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   accountDetail: {
+    fontSize: 16,
+    lineHeight: 24,
+  },
+  accountDetailItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  accountDetailText: {
     fontSize: 16,
     lineHeight: 24,
   },
@@ -434,6 +459,10 @@ const styles = StyleSheet.create({
   signInIcon: {
     fontSize: 48,
   },
+  signInIconContainer: {
+    marginBottom: 16,
+    alignItems: 'center',
+  },
   signInTitle: {
     textAlign: 'center',
   },
@@ -486,7 +515,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  testButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   notificationNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  notificationNoteText: {
     fontSize: 12,
     opacity: 0.6,
     textAlign: 'center',

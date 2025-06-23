@@ -62,7 +62,7 @@ export function useHomeScreenData(): HomeScreenData {
                 vote_average: userShow.showDetails.vote_average,
                 vote_count: 0, // Not available in cached data
                 genres: userShow.showDetails.genres,
-                networks: userShow.showDetails.networks.map(network => ({
+                networks: userShow.showDetails.networks.map((network: any) => ({
                   ...network,
                   logo_path: null, // Not available in cached data
                 })),

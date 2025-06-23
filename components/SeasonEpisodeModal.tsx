@@ -1,6 +1,7 @@
 import { tmdbService } from '@/services/tmdb';
+import { userLibraryService } from '@/services/user-library';
 import { UserShowWithDetails } from '@/types';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from './ThemedText';
 import { ThemedView } from './ThemedView';
@@ -34,6 +35,8 @@ interface SeasonEpisodeModalProps {
   onClose: () => void;
   userShow: UserShowWithDetails;
   onUpdateProgress: (showId: number, season: number, episode: number) => void;
+  onShowDetailsUpdated?: (showId: number, showDetails: any) => void;
+  userId?: string;
 }
 
 export default function SeasonEpisodeModal({
@@ -41,38 +44,63 @@ export default function SeasonEpisodeModal({
   onClose,
   userShow,
   onUpdateProgress,
+  onShowDetailsUpdated,
+  userId,
 }: SeasonEpisodeModalProps) {
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (visible && userShow.showDetails) {
-      fetchSeasons();
-      initializeWatchedEpisodes();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, userShow.showId]);
-
-  const initializeWatchedEpisodes = () => {
+  const initializeWatchedEpisodes = useCallback(() => {
     const watched = new Set<string>();
     userShow.watchedEpisodes.forEach(ep => {
       watched.add(`${ep.seasonNumber}-${ep.episodeNumber}`);
     });
     setWatchedEpisodes(watched);
-  };
+  }, [userShow.watchedEpisodes]);
+
+  useEffect(() => {
+    console.log('SeasonEpisodeModal useEffect triggered:', {
+      visible,
+      userShowId: userShow.showId,
+      hasShowDetails: !!userShow.showDetails,
+      showDetails: userShow.showDetails,
+      watchedEpisodesCount: userShow.watchedEpisodes.length
+    });
+    
+    if (visible) {
+      if (userShow.showDetails) {
+        fetchSeasons();
+      } else {
+        console.warn('Modal opened but userShow.showDetails is null, attempting to fetch...');
+        fetchSeasonsWithoutCache();
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, userShow.showId, userShow.showDetails]);
+
+  // Separate effect for updating watched episodes when userShow changes
+  useEffect(() => {
+    initializeWatchedEpisodes();
+  }, [initializeWatchedEpisodes]);
 
   const fetchSeasons = async () => {
-    if (!userShow.showDetails) return;
+    if (!userShow.showDetails) {
+      console.error('Cannot fetch seasons: userShow.showDetails is null');
+      return;
+    }
     
+    console.log('Fetching seasons for show:', userShow.showId);
     setLoading(true);
     try {
       const showDetails = await tmdbService.getShowDetails(userShow.showId);
+      console.log('Show details loaded:', showDetails.name, 'Seasons:', showDetails.number_of_seasons);
       const seasonsData: Season[] = [];
       
       for (let i = 1; i <= showDetails.number_of_seasons; i++) {
         try {
+          console.log(`Fetching season ${i}...`);
           const seasonData = await tmdbService.getSeasonDetails(userShow.showId, i);
           seasonsData.push(seasonData);
         } catch (error) {
@@ -80,6 +108,50 @@ export default function SeasonEpisodeModal({
         }
       }
       
+      console.log('All seasons loaded:', seasonsData.length);
+      setSeasons(seasonsData);
+    } catch (error) {
+      console.error('Error fetching seasons:', error);
+      Alert.alert('Error', 'Failed to load seasons data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSeasonsWithoutCache = async () => {
+    console.log('Fetching seasons directly from TMDb for show:', userShow.showId);
+    setLoading(true);
+    try {
+      const showDetails = await tmdbService.getShowDetails(userShow.showId);
+      console.log('Show details loaded:', showDetails.name, 'Seasons:', showDetails.number_of_seasons);
+      
+      // Update the cache with the fetched show details
+      if (userId) {
+        try {
+          await userLibraryService.updateCachedShowData(userShow.showId, showDetails);
+        } catch (error) {
+          console.error('Failed to update cached show data:', error);
+        }
+      }
+      
+      // Notify parent that we have show details now
+      if (onShowDetailsUpdated) {
+        onShowDetailsUpdated(userShow.showId, showDetails);
+      }
+      
+      const seasonsData: Season[] = [];
+      
+      for (let i = 1; i <= showDetails.number_of_seasons; i++) {
+        try {
+          console.log(`Fetching season ${i}...`);
+          const seasonData = await tmdbService.getSeasonDetails(userShow.showId, i);
+          seasonsData.push(seasonData);
+        } catch (error) {
+          console.error(`Error fetching season ${i}:`, error);
+        }
+      }
+      
+      console.log('All seasons loaded:', seasonsData.length);
       setSeasons(seasonsData);
     } catch (error) {
       console.error('Error fetching seasons:', error);
@@ -112,19 +184,42 @@ export default function SeasonEpisodeModal({
     }
   };
 
-  const toggleEpisodeWatched = (seasonNumber: number, episodeNumber: number) => {
+  const toggleEpisodeWatched = async (seasonNumber: number, episodeNumber: number) => {
     const key = `${seasonNumber}-${episodeNumber}`;
     const newWatched = new Set(watchedEpisodes);
+    const wasWatched = newWatched.has(key);
     
-    if (newWatched.has(key)) {
+    if (wasWatched) {
       newWatched.delete(key);
     } else {
       newWatched.add(key);
-      // Update user's current progress
-      onUpdateProgress(userShow.showId, seasonNumber, episodeNumber);
     }
     
     setWatchedEpisodes(newWatched);
+    
+    // Save to Firestore if userId is available
+    if (userId) {
+      try {
+        if (wasWatched) {
+          await userLibraryService.markEpisodeUnwatched(userId, userShow.showId, seasonNumber, episodeNumber);
+        } else {
+          await userLibraryService.markEpisodeWatched(userId, userShow.showId, seasonNumber, episodeNumber);
+          // Update user's current progress after successful save
+          onUpdateProgress(userShow.showId, seasonNumber, episodeNumber);
+        }
+      } catch (error) {
+        console.error('Failed to save episode watch status:', error);
+        // Revert UI state on error
+        const revertedWatched = new Set(watchedEpisodes);
+        if (wasWatched) {
+          revertedWatched.add(key);
+        } else {
+          revertedWatched.delete(key);
+        }
+        setWatchedEpisodes(revertedWatched);
+        Alert.alert('Error', 'Failed to save episode progress. Please try again.');
+      }
+    }
   };
 
   const isSeasonWatched = (season: Season) => {
@@ -142,12 +237,13 @@ export default function SeasonEpisodeModal({
     return (watchedCount / season.episodes.length) * 100;
   };
 
-  const toggleSeasonWatched = (season: Season) => {
+  const toggleSeasonWatched = async (season: Season) => {
     if (!season.episodes) return;
     
     const newWatched = new Set(watchedEpisodes);
     const isWatched = isSeasonWatched(season);
     
+    // Update local state first
     season.episodes.forEach(ep => {
       const key = `${season.season_number}-${ep.episode_number}`;
       if (isWatched) {
@@ -163,6 +259,39 @@ export default function SeasonEpisodeModal({
       const lastEpisode = season.episodes[season.episodes.length - 1];
       onUpdateProgress(userShow.showId, season.season_number, lastEpisode.episode_number);
     }
+    
+    // Save to Firestore if userId is available
+    if (userId) {
+      try {
+        if (isWatched) {
+          // Mark entire season as unwatched
+          await userLibraryService.markSeasonUnwatched(userId, userShow.showId, season.season_number, season.episodes);
+        } else {
+          // Mark entire season as watched
+          await userLibraryService.markSeasonWatched(userId, userShow.showId, season.season_number, season.episodes);
+        }
+        
+        // Notify parent of progress update after successful save
+        if (!isWatched && season.episodes.length > 0) {
+          const lastEpisode = season.episodes[season.episodes.length - 1];
+          onUpdateProgress(userShow.showId, season.season_number, lastEpisode.episode_number);
+        }
+      } catch (error) {
+        console.error('Failed to save season watch status:', error);
+        // Revert UI state on error
+        const revertedWatched = new Set(watchedEpisodes);
+        season.episodes.forEach(ep => {
+          const key = `${season.season_number}-${ep.episode_number}`;
+          if (isWatched) {
+            revertedWatched.add(key);
+          } else {
+            revertedWatched.delete(key);
+          }
+        });
+        setWatchedEpisodes(revertedWatched);
+        Alert.alert('Error', 'Failed to save season progress. Please try again.');
+      }
+    }
   };
 
   return (
@@ -170,7 +299,7 @@ export default function SeasonEpisodeModal({
       <ThemedView style={styles.container}>
         <View style={styles.header}>
           <ThemedText type="title" style={styles.title}>
-            {userShow.showDetails?.name}
+            {userShow.showDetails?.name || `Show #${userShow.showId}`}
           </ThemedText>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <ThemedText style={styles.closeButtonText}>✕</ThemedText>
@@ -179,7 +308,15 @@ export default function SeasonEpisodeModal({
 
         <ScrollView style={styles.content}>
           {loading ? (
-            <ThemedText style={styles.loadingText}>Loading seasons...</ThemedText>
+            <View style={styles.loadingContainer}>
+              <ThemedText style={styles.loadingText}>Loading seasons...</ThemedText>
+            </View>
+          ) : seasons.length === 0 ? (
+            <View style={styles.errorContainer}>
+              <ThemedText style={styles.errorText}>
+                No seasons found for this show.
+              </ThemedText>
+            </View>
           ) : (
             seasons.map((season) => (
               <View key={season.id} style={styles.seasonContainer}>
@@ -208,7 +345,7 @@ export default function SeasonEpisodeModal({
                     {season.episodes && (
                       <TouchableOpacity
                         style={[styles.watchButton, isSeasonWatched(season) && styles.watchedButton]}
-                        onPress={() => toggleSeasonWatched(season)}
+                        onPress={async () => await toggleSeasonWatched(season)}
                       >
                         <ThemedText style={[styles.watchButtonText, isSeasonWatched(season) && styles.watchedButtonText]}>
                           {isSeasonWatched(season) ? '✓' : '○'}
@@ -232,7 +369,7 @@ export default function SeasonEpisodeModal({
                       <TouchableOpacity
                         key={episode.id}
                         style={styles.episodeItem}
-                        onPress={() => toggleEpisodeWatched(season.season_number, episode.episode_number)}
+                        onPress={async () => await toggleEpisodeWatched(season.season_number, episode.episode_number)}
                       >
                         <View style={styles.episodeInfo}>
                           <ThemedText style={styles.episodeTitle}>
@@ -411,5 +548,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: 'white',
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: 'center',
+    opacity: 0.7,
   },
 });

@@ -301,7 +301,7 @@ export default function ShowDetailsScreen() {
                 <View style={styles.buttonContent}>
                   <IconSymbol name="tv.fill" size={16} color="white" />
                   <ThemedText style={styles.actionButtonText}>
-                    Manage Episodes
+                    Manage
                   </ThemedText>
                 </View>
               </TouchableOpacity>

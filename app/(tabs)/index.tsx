@@ -1,19 +1,17 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import LoadingScreen from '@/components/LoadingScreen';
-import ShowList from '@/components/ShowList';
+import ShowCard from '@/components/ShowCard';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useHomeScreenData } from '@/hooks/useHomeScreenData';
-import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { TMDbShow } from '@/services/tmdb';
-
 export default function HomeScreen() {
   const { user, isLoading: authLoading } = useAuth();
-  const { stats } = useUserLibrary();
   const {
     trendingShows,
     popularShows,
@@ -29,9 +27,10 @@ export default function HomeScreen() {
     return <LoadingScreen message="Initializing CueView..." />;
   }
 
-  const handleShowPress = (show: TMDbShow) => {
+  const handleShowPress = (showIdOrShow: number | TMDbShow) => {
     // Navigate to show details screen
-    router.push(`/show/${show.id}`);
+    const showId = typeof showIdOrShow === 'number' ? showIdOrShow : showIdOrShow.id;
+    router.push(`/show/${showId}`);
   };
 
   const onRefresh = async () => {
@@ -40,58 +39,149 @@ export default function HomeScreen() {
     setTimeout(() => setRefreshing(false), 1000);
   };
 
+  // Create sections for the FlatList
+  const createSections = () => {
+    const sections = [];
+
+    // Continue Watching Section
+    if (continueWatching.length > 0) {
+      sections.push({
+        type: 'horizontal_list',
+        title: 'Continue Watching',
+        data: continueWatching,
+        showProgress: true,
+      });
+    }
+
+    // Trending Shows
+    sections.push({
+      type: 'horizontal_list',
+      title: 'Trending This Week',
+      data: trendingShows,
+      loading: dataLoading,
+      error: error,
+    });
+
+    // Popular Shows
+    sections.push({
+      type: 'horizontal_list',
+      title: 'Popular Shows',
+      data: popularShows,
+      loading: dataLoading,
+      error: error,
+    });
+
+    // Top Rated Shows
+    sections.push({
+      type: 'horizontal_list',
+      title: 'Top Rated',
+      data: topRatedShows,
+      loading: dataLoading,
+      error: error,
+    });
+
+    return sections;
+  };
+
+  const renderSectionItem = ({ item: section }: { item: any }) => {
+    switch (section.type) {
+      case 'horizontal_list':
+        if (section.loading) {
+          return (
+            <View style={styles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                {section.title}
+              </ThemedText>
+              <View style={styles.loadingContainer}>
+                <IconSymbol name="clock.fill" size={16} color="#999" />
+                <ThemedText style={styles.loadingText}>Loading shows...</ThemedText>
+              </View>
+            </View>
+          );
+        }
+
+        if (section.error) {
+          return (
+            <View style={styles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                {section.title}
+              </ThemedText>
+              <View style={styles.errorContainer}>
+                <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#FF3B30" />
+                <ThemedText style={styles.errorText}>{section.error}</ThemedText>
+              </View>
+            </View>
+          );
+        }
+
+        if (section.data.length === 0) {
+          return (
+            <View style={styles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                {section.title}
+              </ThemedText>
+              <View style={styles.emptyContainer}>
+                <IconSymbol name="tv.fill" size={16} color="#999" />
+                <ThemedText style={styles.emptyText}>No shows available</ThemedText>
+              </View>
+            </View>
+          );
+        }
+
+        return (
+          <View style={styles.horizontalSection}>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+              {section.title}
+            </ThemedText>
+            <FlatList
+              data={section.data}
+              renderItem={({ item }) => (
+                <ShowCard 
+                  show={item} 
+                  onPress={handleShowPress}
+                  showProgress={section.showProgress}
+                  progress={section.showProgress ? Math.random() * 100 : 0} // TODO: Get real progress
+                />
+              )}
+              keyExtractor={(item) => `${section.title}-${item.id}`}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+            />
+          </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
+    <ThemedView style={styles.container}>
       <ThemedView style={styles.header}>
-        <ThemedText type="title">CueView</ThemedText>
-        {user && (
-          <ThemedText type="subtitle">Hello, {user.username}!</ThemedText>
-        )}
+        <View style={styles.headerContent}>
+          <View style={styles.titleSection}>
+            <ThemedText type="title">CueView</ThemedText>
+            {user && (
+              <ThemedText style={styles.subtitle}>Hello, {user.username}!</ThemedText>
+            )}
+          </View>
+        </View>
       </ThemedView>
 
-      {/* Continue Watching Section */}
-      {continueWatching.length > 0 && (
-        <ShowList
-          title="Continue Watching"
-          shows={continueWatching}
-          onShowPress={handleShowPress}
-          showProgress={true}
-        />
-      )}
-
-      {/* Trending Shows */}
-      <ShowList
-        title="Trending This Week"
-        shows={trendingShows}
-        onShowPress={handleShowPress}
-        loading={dataLoading}
-        error={error || undefined}
+      {/* Single FlatList for all content */}
+      <FlatList
+        data={createSections()}
+        renderItem={renderSectionItem}
+        keyExtractor={(item, index) => `${item.type}-${index}`}
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.flatListContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
-
-      {/* Popular Shows */}
-      <ShowList
-        title="Popular Shows"
-        shows={popularShows}
-        onShowPress={handleShowPress}
-        loading={dataLoading}
-        error={error || undefined}
-      />
-
-      {/* Top Rated Shows */}
-      <ShowList
-        title="Top Rated"
-        shows={topRatedShows}
-        onShowPress={handleShowPress}
-        loading={dataLoading}
-        error={error || undefined}
-      />
-
-    </ScrollView>
+    </ThemedView>
   );
 }
 
@@ -100,14 +190,75 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 20,
+    paddingHorizontal: 20,
     paddingTop: 60,
+    paddingBottom: 20,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  titleSection: {
+    flex: 1,
+    gap: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    opacity: 0.7,
+  },
+  content: {
+    flex: 1,
+  },
+  flatListContent: {
+    paddingBottom: 20,
+  },
+  horizontalSection: {
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  horizontalList: {
+    paddingHorizontal: 16,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
     gap: 8,
+  },
+  loadingText: {
+    opacity: 0.6,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    gap: 8,
+  },
+  errorText: {
+    opacity: 0.6,
+    color: '#FF3B30',
+  },
+  emptyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    gap: 8,
+  },
+  emptyText: {
+    opacity: 0.6,
   },
   statsSection: {
     padding: 16,
     margin: 16,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: 'rgba(233, 76, 76, 0.05)',
     borderRadius: 8,
     gap: 8,
   },

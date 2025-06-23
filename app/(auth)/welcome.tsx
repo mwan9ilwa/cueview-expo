@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { router } from 'expo-router';
 import React from 'react';
 import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
@@ -20,22 +21,22 @@ export default function WelcomeScreen() {
 
         <ThemedView style={styles.features}>
           <ThemedView style={styles.feature}>
-            <ThemedText style={styles.featureIcon}>📺</ThemedText>
+            <IconSymbol name="tv.fill" size={24} color="#007AFF" />
             <ThemedText style={styles.featureText}>Track your watching progress</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.feature}>
-            <ThemedText style={styles.featureIcon}>🔍</ThemedText>
+            <IconSymbol name="magnifyingglass" size={24} color="#007AFF" />
             <ThemedText style={styles.featureText}>Discover trending shows</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.feature}>
-            <ThemedText style={styles.featureIcon}>📅</ThemedText>
+            <IconSymbol name="calendar" size={24} color="#007AFF" />
             <ThemedText style={styles.featureText}>Get episode reminders</ThemedText>
           </ThemedView>
 
           <ThemedView style={styles.feature}>
-            <ThemedText style={styles.featureIcon}>⭐</ThemedText>
+            <IconSymbol name="star.fill" size={24} color="#007AFF" />
             <ThemedText style={styles.featureText}>Rate and review shows</ThemedText>
           </ThemedView>
         </ThemedView>

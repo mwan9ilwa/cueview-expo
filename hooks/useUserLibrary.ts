@@ -62,24 +62,33 @@ export function useUserLibrary() {
     if (!user) return;
 
     // Set up real-time listener for Firestore changes
-    const unsubscribe = userLibraryService.subscribeToUpdates(user.id, async (shows) => {
-      setUserShows(shows);
-      
-      // Update detailed shows and stats
-      try {
-        const [showsWithDetails, libraryStats] = await Promise.all([
-          userLibraryService.getUserShowsWithDetails(user.id),
-          userLibraryService.getLibraryStats(user.id),
-        ]);
+    const setupSubscription = async () => {
+      const unsubscribe = await userLibraryService.subscribeToUpdates(user.id, async (shows) => {
+        setUserShows(shows);
         
-        setUserShowsWithDetails(showsWithDetails);
-        setStats(libraryStats);
-      } catch (error) {
-        console.error('Error updating detailed data after sync:', error);
-      }
-    });
+        // Update detailed shows and stats
+        try {
+          const [showsWithDetails, libraryStats] = await Promise.all([
+            userLibraryService.getUserShowsWithDetails(user.id),
+            userLibraryService.getLibraryStats(user.id),
+          ]);
+          
+          setUserShowsWithDetails(showsWithDetails);
+          setStats(libraryStats);
+        } catch (error) {
+          console.error('Error updating detailed data after sync:', error);
+        }
+      });
 
-    return unsubscribe;
+      return unsubscribe;
+    };
+
+    setupSubscription();
+
+    // Return cleanup function
+    return () => {
+      // Cleanup if needed
+    };
   }, [user]);
 
   useEffect(() => {

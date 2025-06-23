@@ -1,6 +1,7 @@
 import ShowCard from '@/components/ShowCard';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { tmdbService, TMDbShow } from '@/services/tmdb';
@@ -76,8 +77,9 @@ export default function DiscoverScreen() {
     }
   };
 
-  const handleShowPress = (show: TMDbShow) => {
-    router.push(`/show/${show.id}`);
+  const handleShowPress = (showIdOrShow: number | TMDbShow) => {
+    const showId = typeof showIdOrShow === 'number' ? showIdOrShow : showIdOrShow.id;
+    router.push(`/show/${showId}`);
   };
 
   const clearSearch = () => {
@@ -187,7 +189,10 @@ export default function DiscoverScreen() {
       case 'searching':
         return (
           <ThemedView style={styles.searchSection}>
-            <ThemedText style={styles.searchingText}>🔍 Searching...</ThemedText>
+            <View style={styles.searchingContainer}>
+              <IconSymbol name="magnifyingglass" size={16} color="#999" />
+              <ThemedText style={styles.searchingText}>Searching...</ThemedText>
+            </View>
           </ThemedView>
         );
 
@@ -213,7 +218,10 @@ export default function DiscoverScreen() {
               <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
                 {section.title}
               </ThemedText>
-              <ThemedText style={styles.loadingText}>📱 Loading shows...</ThemedText>
+              <View style={styles.loadingContainer}>
+                <IconSymbol name="clock.fill" size={16} color="#999" />
+                <ThemedText style={styles.loadingText}>Loading shows...</ThemedText>
+              </View>
             </View>
           );
         }
@@ -234,24 +242,6 @@ export default function DiscoverScreen() {
             />
           </View>
         );
-
-      case 'coming_soon':
-        return (
-          <ThemedView style={styles.comingSoonSection}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-              Coming Soon
-            </ThemedText>
-            <ThemedView style={styles.featureList}>
-              <ThemedText style={styles.featureItem}>🎭 Genre filters</ThemedText>
-              <ThemedText style={styles.featureItem}>📺 Network filters</ThemedText>
-              <ThemedText style={styles.featureItem}>🎯 Personalized recommendations</ThemedText>
-              <ThemedText style={styles.featureItem}>📅 New releases</ThemedText>
-            </ThemedView>
-          </ThemedView>
-        );
-
-      default:
-        return null;
     }
   };
 
@@ -291,7 +281,7 @@ export default function DiscoverScreen() {
           styles.searchInputContainer,
           { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
         ]}>
-          <ThemedText style={styles.searchIcon}>🔍</ThemedText>
+          <IconSymbol name="magnifyingglass" size={16} color={colorScheme === 'dark' ? '#999' : '#666'} />
           <TextInput
             style={[
               styles.searchInput,
@@ -416,6 +406,12 @@ const styles = StyleSheet.create({
   searchSection: {
     padding: 16,
   },
+  searchingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+  },
   searchingText: {
     textAlign: 'center',
     fontSize: 16,
@@ -472,6 +468,14 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 20,
   },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    marginHorizontal: 16,
+    marginBottom: 20,
+  },
   comingSoonSection: {
     margin: 16,
     padding: 20,
@@ -485,6 +489,11 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  featureText: {
     fontSize: 14,
     opacity: 0.8,
   },

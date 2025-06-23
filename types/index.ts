@@ -8,8 +8,8 @@ export interface User {
   updatedAt: Date;
 }
 
-// Show status types
-export type ShowStatus = 'watching' | 'want-to-watch' | 'watched';
+// Enhanced show status and tracking types
+export type ShowStatus = 'watching' | 'want-to-watch' | 'watched' | 'on-hold' | 'dropped';
 
 // User's show in their library
 export interface UserShow {
@@ -17,13 +17,29 @@ export interface UserShow {
   userId: string;
   showId: number; // TMDb show ID
   status: ShowStatus;
-  rating?: number; // 1-5 stars
+  rating?: number; // Overall show rating (1-5 stars)
   notes?: string;
   currentSeason?: number;
   currentEpisode?: number;
   watchedEpisodes: WatchedEpisode[];
   addedAt: Date;
   updatedAt: Date;
+  
+  // Enhanced tracking fields
+  startedWatchingAt?: Date; // When user first started watching
+  completedAt?: Date; // When user finished the show
+  lastWatchedAt?: Date; // Last time user watched an episode
+  totalRewatches: number; // How many times rewatched
+  favoriteEpisodes: number[]; // Array of episode IDs marked as favorites
+  reminderSettings?: {
+    enabled: boolean;
+    notifyOnNewEpisodes: boolean;
+    notifyOnNewSeasons: boolean;
+  };
+  
+  // Watch time tracking
+  totalWatchTimeMinutes: number; // Estimated total watch time
+  averageEpisodeRating?: number; // Average of all episode ratings
 }
 
 // User show with cached show details
@@ -36,6 +52,9 @@ export interface WatchedEpisode {
   seasonNumber: number;
   episodeNumber: number;
   watchedAt: Date;
+  rewatch?: boolean; // For tracking rewatches
+  rating?: number; // Episode-specific rating (1-5)
+  notes?: string; // Episode-specific notes
 }
 
 // Local cached show data (for offline access)
@@ -172,4 +191,23 @@ export interface UserStats {
   totalWatchTime: number; // in minutes
   favoriteGenres: { genre: string; count: number }[];
   monthlyProgress: { month: string; episodesWatched: number }[];
+}
+
+// Enhanced show analytics
+export interface ShowAnalytics {
+  totalShows: number;
+  watching: number;
+  wantToWatch: number;
+  watched: number;
+  onHold: number;
+  dropped: number;
+  totalEpisodesWatched: number;
+  totalWatchTimeHours: number;
+  averageRating: number;
+  mostWatchedGenres: string[];
+  completionRate: number; // Percentage of shows completed vs started
+  bingeFactor: number; // Average episodes watched per session
+  favoriteDecade: string;
+  longestShow: { name: string; episodes: number };
+  fastestCompletion: { name: string; days: number };
 }

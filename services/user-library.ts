@@ -1,22 +1,18 @@
 import { ShowStatus, UserShow } from '@/types';
-import { dbService } from './database';
 import { firestoreService } from './firestore';
 import { TMDbShow } from './tmdb';
 
 class UserLibraryService {
   private userShows: Map<string, UserShow[]> = new Map(); // Cache by userId
+  private showDetailsCache: Map<number, any> = new Map(); // Cache show details by showId
   private initialized = false;
-  private syncEnabled = true; // Can be toggled for offline mode
+
+  // Offline support and conflict resolution
+  private pendingOperations: Map<string, any[]> = new Map();
+  private isOnline = true;
 
   async init() {
-    if (!this.initialized) {
-      await dbService.init();
-      this.initialized = true;
-    }
-  }
-
-  setSyncEnabled(enabled: boolean) {
-    this.syncEnabled = enabled;
+    this.initialized = true;
   }
 
   async getUserShows(userId: string): Promise<UserShow[]> {
@@ -29,36 +25,13 @@ class UserLibraryService {
 
     let shows: UserShow[] = [];
     
-    if (this.syncEnabled) {
-      try {
-        // Firestore is the authoritative source
-        shows = await firestoreService.getUserShows(userId);
-        
-        // Try to replace local SQLite data with Firestore data
-        try {
-          await this.replaceLocalDataWithFirestore(userId, shows);
-        } catch (dbError) {
-          console.error('Failed to sync to local database, continuing with Firestore data only:', dbError);
-        }
-        
-        console.log(`Loaded ${shows.length} shows from Firestore (authoritative source)`);
-      } catch (error) {
-        console.log('Failed to load from Firestore, trying local cache:', error);
-        try {
-          shows = await dbService.getUserShows(userId);
-        } catch (dbError) {
-          console.error('Failed to load from local database:', dbError);
-          shows = []; // Return empty array if both sources fail
-        }
-      }
-    } else {
-      // Offline mode - use local SQLite cache
-      try {
-        shows = await dbService.getUserShows(userId);
-      } catch (dbError) {
-        console.error('Failed to load from local database in offline mode:', dbError);
-        shows = []; // Return empty array if database fails
-      }
+    try {
+      // Firestore is the only source now
+      shows = await firestoreService.getUserShows(userId);
+      console.log(`Loaded ${shows.length} shows from Firestore`);
+    } catch (error) {
+      console.error('Failed to load from Firestore:', error);
+      shows = []; // Return empty array if Firestore fails
     }
 
     this.userShows.set(userId, shows);
@@ -89,25 +62,27 @@ class UserLibraryService {
       watchedEpisodes: [],
       addedAt: new Date(),
       updatedAt: new Date(),
+      // Enhanced tracking fields
+      startedWatchingAt: undefined,
+      completedAt: undefined,
+      lastWatchedAt: undefined,
+      totalRewatches: 0,
+      favoriteEpisodes: [],
+      reminderSettings: {
+        enabled: false,
+        notifyOnNewEpisodes: false,
+        notifyOnNewSeasons: false,
+      },
+      totalWatchTimeMinutes: 0,
+      averageEpisodeRating: undefined,
     };
 
-    // Try to save to local database first
+    // Save to Firestore
     try {
-      await dbService.saveUserShow(userShow);
-    } catch (dbError) {
-      console.error('Failed to save to local database:', dbError);
-      // Continue with Firestore sync only
-    }
-    
-    // Sync to Firestore if enabled
-    if (this.syncEnabled) {
-      try {
-        await firestoreService.saveUserShow(userShow);
-      } catch (error) {
-        console.error('Failed to sync show to Firestore:', error);
-        // If both local and cloud saves failed, throw error
-        throw new Error('Failed to save show to both local and cloud storage');
-      }
+      await firestoreService.saveUserShow(userShow);
+    } catch (error) {
+      console.error('Failed to save show to Firestore:', error);
+      throw new Error('Failed to save show to library');
     }
     
     // Update cache
@@ -122,7 +97,7 @@ class UserLibraryService {
     
     this.userShows.set(userId, userShows);
 
-    // Try to cache the show data for offline access
+    // Cache the show data for future use
     try {
       await this.cacheShowData(show);
     } catch (cacheError) {
@@ -136,23 +111,18 @@ class UserLibraryService {
 
     const userShowId = `${userId}_${showId}`;
     
-    // Remove from local database
-    await dbService.deleteUserShow(userShowId);
-    
-    // Sync removal to Firestore if enabled
-    if (this.syncEnabled) {
-      try {
-        await firestoreService.deleteUserShow(userId, userShowId);
-      } catch (error) {
-        console.error('Failed to sync show removal to Firestore:', error);
-        // Continue - local removal succeeded
-      }
+    // Remove from Firestore
+    try {
+      await firestoreService.deleteUserShow(userId, userShowId);
+    } catch (error) {
+      console.error('Failed to remove show from Firestore:', error);
+      throw new Error('Failed to remove show from library');
     }
     
     // Update cache
     const userShows = this.userShows.get(userId) || [];
-    const updatedShows = userShows.filter(show => show.showId !== showId);
-    this.userShows.set(userId, updatedShows);
+    const filteredShows = userShows.filter(show => show.showId !== showId);
+    this.userShows.set(userId, filteredShows);
   }
 
   async updateShowStatus(
@@ -172,17 +142,80 @@ class UserLibraryService {
     userShow.status = status;
     userShow.updatedAt = new Date();
 
-    // Save to local database
-    await dbService.saveUserShow(userShow);
+    // Save to Firestore
+    try {
+      await firestoreService.saveUserShow(userShow);
+    } catch (error) {
+      console.error('Failed to update show status in Firestore:', error);
+      throw new Error('Failed to update show status');
+    }
     
-    // Sync to Firestore if enabled
-    if (this.syncEnabled) {
-      try {
-        await firestoreService.saveUserShow(userShow);
-      } catch (error) {
-        console.error('Failed to sync show status to Firestore:', error);
-        // Continue - local save succeeded
-      }
+    // Update cache
+    const cachedShows = this.userShows.get(userId) || [];
+    const showIndex = cachedShows.findIndex(s => s.showId === showId);
+    if (showIndex >= 0) {
+      cachedShows[showIndex] = userShow;
+      this.userShows.set(userId, cachedShows);
+    }
+  }
+
+  async updateShowRating(
+    userId: string, 
+    showId: number, 
+    rating: number
+  ): Promise<void> {
+    await this.init();
+
+    const userShows = await this.getUserShows(userId);
+    const userShow = userShows.find(show => show.showId === showId);
+    
+    if (!userShow) {
+      throw new Error('Show not found in user library');
+    }
+
+    userShow.rating = rating;
+    userShow.updatedAt = new Date();
+
+    // Save to Firestore
+    try {
+      await firestoreService.saveUserShow(userShow);
+    } catch (error) {
+      console.error('Failed to update show rating in Firestore:', error);
+      throw new Error('Failed to update show rating');
+    }
+    
+    // Update cache
+    const cachedShows = this.userShows.get(userId) || [];
+    const showIndex = cachedShows.findIndex(s => s.showId === showId);
+    if (showIndex >= 0) {
+      cachedShows[showIndex] = userShow;
+      this.userShows.set(userId, cachedShows);
+    }
+  }
+
+  async updateShowNotes(
+    userId: string, 
+    showId: number, 
+    notes: string
+  ): Promise<void> {
+    await this.init();
+
+    const userShows = await this.getUserShows(userId);
+    const userShow = userShows.find(show => show.showId === showId);
+    
+    if (!userShow) {
+      throw new Error('Show not found in user library');
+    }
+
+    userShow.notes = notes;
+    userShow.updatedAt = new Date();
+
+    // Save to Firestore
+    try {
+      await firestoreService.saveUserShow(userShow);
+    } catch (error) {
+      console.error('Failed to update show notes in Firestore:', error);
+      throw new Error('Failed to update show notes');
     }
     
     // Update cache
@@ -195,8 +228,8 @@ class UserLibraryService {
   }
 
   async updateShowProgress(
-    userId: string,
-    showId: number,
+    userId: string, 
+    showId: number, 
     season: number,
     episode: number
   ): Promise<void> {
@@ -226,17 +259,12 @@ class UserLibraryService {
       });
     }
 
-    // Save to local database
-    await dbService.saveUserShow(userShow);
-    
-    // Sync to Firestore if enabled
-    if (this.syncEnabled) {
-      try {
-        await firestoreService.saveUserShow(userShow);
-      } catch (error) {
-        console.error('Failed to sync show progress to Firestore:', error);
-        // Continue - local save succeeded
-      }
+    // Save to Firestore
+    try {
+      await firestoreService.saveUserShow(userShow);
+    } catch (error) {
+      console.error('Failed to update show progress in Firestore:', error);
+      throw new Error('Failed to update show progress');
     }
     
     // Update cache
@@ -248,10 +276,11 @@ class UserLibraryService {
     }
   }
 
-  async rateShow(
-    userId: string,
-    showId: number,
-    rating: number
+  async markEpisodeWatched(
+    userId: string, 
+    showId: number, 
+    season: number,
+    episode: number
   ): Promise<void> {
     await this.init();
 
@@ -262,35 +291,42 @@ class UserLibraryService {
       throw new Error('Show not found in user library');
     }
 
-    userShow.rating = Math.max(1, Math.min(5, rating)); // Clamp to 1-5
-    userShow.updatedAt = new Date();
+    // Add to watched episodes if not already there
+    const alreadyWatched = userShow.watchedEpisodes.some(
+      ep => ep.seasonNumber === season && ep.episodeNumber === episode
+    );
 
-    // Save to local database
-    await dbService.saveUserShow(userShow);
-    
-    // Sync to Firestore if enabled
-    if (this.syncEnabled) {
+    if (!alreadyWatched) {
+      userShow.watchedEpisodes.push({
+        seasonNumber: season,
+        episodeNumber: episode,
+        watchedAt: new Date(),
+      });
+      userShow.updatedAt = new Date();
+
+      // Save to Firestore
       try {
         await firestoreService.saveUserShow(userShow);
       } catch (error) {
-        console.error('Failed to sync show rating to Firestore:', error);
-        // Continue - local save succeeded
+        console.error('Failed to mark episode as watched in Firestore:', error);
+        throw new Error('Failed to mark episode as watched');
       }
-    }
-    
-    // Update cache
-    const cachedShows = this.userShows.get(userId) || [];
-    const showIndex = cachedShows.findIndex(s => s.showId === showId);
-    if (showIndex >= 0) {
-      cachedShows[showIndex] = userShow;
-      this.userShows.set(userId, cachedShows);
+      
+      // Update cache
+      const cachedShows = this.userShows.get(userId) || [];
+      const showIndex = cachedShows.findIndex(s => s.showId === showId);
+      if (showIndex >= 0) {
+        cachedShows[showIndex] = userShow;
+        this.userShows.set(userId, cachedShows);
+      }
     }
   }
 
-  async addNoteToShow(
-    userId: string,
-    showId: number,
-    notes: string
+  async markEpisodeUnwatched(
+    userId: string, 
+    showId: number, 
+    season: number,
+    episode: number
   ): Promise<void> {
     await this.init();
 
@@ -301,204 +337,278 @@ class UserLibraryService {
       throw new Error('Show not found in user library');
     }
 
-    userShow.notes = notes;
-    userShow.updatedAt = new Date();
+    // Remove from watched episodes if present
+    const initialLength = userShow.watchedEpisodes.length;
+    userShow.watchedEpisodes = userShow.watchedEpisodes.filter(
+      ep => !(ep.seasonNumber === season && ep.episodeNumber === episode)
+    );
 
-    // Save to local database
-    await dbService.saveUserShow(userShow);
-    
-    // Sync to Firestore if enabled
-    if (this.syncEnabled) {
+    if (userShow.watchedEpisodes.length !== initialLength) {
+      userShow.updatedAt = new Date();
+
+      // Save to Firestore
       try {
         await firestoreService.saveUserShow(userShow);
       } catch (error) {
-        console.error('Failed to sync show notes to Firestore:', error);
-        // Continue - local save succeeded
+        console.error('Failed to mark episode as unwatched in Firestore:', error);
+        throw new Error('Failed to mark episode as unwatched');
+      }
+      
+      // Update cache
+      const cachedShows = this.userShows.get(userId) || [];
+      const showIndex = cachedShows.findIndex(s => s.showId === showId);
+      if (showIndex >= 0) {
+        cachedShows[showIndex] = userShow;
+        this.userShows.set(userId, cachedShows);
       }
     }
+  }
+
+  async markSeasonWatched(
+    userId: string, 
+    showId: number, 
+    seasonNumber: number,
+    episodes: { episode_number: number }[]
+  ): Promise<void> {
+    await this.init();
+
+    const userShows = await this.getUserShows(userId);
+    const userShow = userShows.find(show => show.showId === showId);
     
-    // Update cache
-    const cachedShows = this.userShows.get(userId) || [];
-    const showIndex = cachedShows.findIndex(s => s.showId === showId);
-    if (showIndex >= 0) {
-      cachedShows[showIndex] = userShow;
-      this.userShows.set(userId, cachedShows);
+    if (!userShow) {
+      throw new Error('Show not found in user library');
+    }
+
+    // Add all episodes to watched list if not already there
+    let hasChanges = false;
+    episodes.forEach(ep => {
+      const alreadyWatched = userShow.watchedEpisodes.some(
+        watchedEp => watchedEp.seasonNumber === seasonNumber && watchedEp.episodeNumber === ep.episode_number
+      );
+
+      if (!alreadyWatched) {
+        userShow.watchedEpisodes.push({
+          seasonNumber: seasonNumber,
+          episodeNumber: ep.episode_number,
+          watchedAt: new Date(),
+        });
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges) {
+      userShow.updatedAt = new Date();
+
+      // Update current progress to last episode of season
+      if (episodes.length > 0) {
+        const lastEpisode = episodes[episodes.length - 1];
+        userShow.currentSeason = seasonNumber;
+        userShow.currentEpisode = lastEpisode.episode_number;
+      }
+
+      // Save to Firestore
+      try {
+        await firestoreService.saveUserShow(userShow);
+      } catch (error) {
+        console.error('Failed to mark season as watched in Firestore:', error);
+        throw new Error('Failed to mark season as watched');
+      }
+      
+      // Update cache
+      const cachedShows = this.userShows.get(userId) || [];
+      const showIndex = cachedShows.findIndex(s => s.showId === showId);
+      if (showIndex >= 0) {
+        cachedShows[showIndex] = userShow;
+        this.userShows.set(userId, cachedShows);
+      }
     }
   }
 
-  async isShowInLibrary(userId: string, showId: number): Promise<boolean> {
+  async markSeasonUnwatched(
+    userId: string, 
+    showId: number, 
+    seasonNumber: number,
+    episodes: { episode_number: number }[]
+  ): Promise<void> {
+    await this.init();
+
     const userShows = await this.getUserShows(userId);
-    return userShows.some(show => show.showId === showId);
-  }
-
-  async getUserShowForShow(userId: string, showId: number): Promise<UserShow | null> {
-    const userShows = await this.getUserShows(userId);
-    return userShows.find(show => show.showId === showId) || null;
-  }
-
-  async getLibraryStats(userId: string) {
-    const userShows = await this.getUserShows(userId);
+    const userShow = userShows.find(show => show.showId === showId);
     
-    const stats = {
-      totalShows: userShows.length,
-      watching: userShows.filter(s => s.status === 'watching').length,
-      wantToWatch: userShows.filter(s => s.status === 'want-to-watch').length,
-      watched: userShows.filter(s => s.status === 'watched').length,
-      totalEpisodesWatched: userShows.reduce(
-        (total, show) => total + show.watchedEpisodes.length, 
-        0
-      ),
-      averageRating: this.calculateAverageRating(userShows),
-    };
+    if (!userShow) {
+      throw new Error('Show not found in user library');
+    }
 
-    return stats;
-  }
+    // Remove all episodes of this season from watched list
+    const initialLength = userShow.watchedEpisodes.length;
+    userShow.watchedEpisodes = userShow.watchedEpisodes.filter(
+      ep => !(ep.seasonNumber === seasonNumber && episodes.some(seasonEp => seasonEp.episode_number === ep.episodeNumber))
+    );
 
-  private calculateAverageRating(shows: UserShow[]): number {
-    const ratedShows = shows.filter(show => show.rating !== undefined);
-    if (ratedShows.length === 0) return 0;
-    
-    const totalRating = ratedShows.reduce((sum, show) => sum + (show.rating || 0), 0);
-    return Math.round((totalRating / ratedShows.length) * 10) / 10; // Round to 1 decimal
-  }
+    if (userShow.watchedEpisodes.length !== initialLength) {
+      userShow.updatedAt = new Date();
 
-  private async cacheShowData(show: TMDbShow): Promise<void> {
-    // Convert TMDbShow to CachedShow format with full data
-    const cachedShow = {
-      id: show.id,
-      name: show.name,
-      overview: show.overview || '',
-      poster_path: show.poster_path,
-      backdrop_path: show.backdrop_path,
-      first_air_date: show.first_air_date || '',
-      last_air_date: show.last_air_date || '',
-      number_of_episodes: show.number_of_episodes || 0,
-      number_of_seasons: show.number_of_seasons || 0,
-      status: show.status || '',
-      vote_average: show.vote_average || 0,
-      genres: show.genres || [],
-      networks: show.networks || [],
-      cachedAt: new Date(),
-    };
-
-    // Save to local database
-    await dbService.saveCachedShow(cachedShow);
-    
-    // Sync to Firestore if enabled (for shared show cache)
-    if (this.syncEnabled) {
+      // Save to Firestore
       try {
-        await firestoreService.saveCachedShow(cachedShow);
+        await firestoreService.saveUserShow(userShow);
       } catch (error) {
-        console.error('Failed to sync cached show to Firestore:', error);
-        // Continue - local cache succeeded
+        console.error('Failed to mark season as unwatched in Firestore:', error);
+        throw new Error('Failed to mark season as unwatched');
+      }
+      
+      // Update cache
+      const cachedShows = this.userShows.get(userId) || [];
+      const showIndex = cachedShows.findIndex(s => s.showId === showId);
+      if (showIndex >= 0) {
+        cachedShows[showIndex] = userShow;
+        this.userShows.set(userId, cachedShows);
       }
     }
   }
 
   async getCachedShowData(showId: number) {
     await this.init();
-    return dbService.getCachedShow(showId);
+    
+    // Check memory cache first
+    if (this.showDetailsCache.has(showId)) {
+      return this.showDetailsCache.get(showId);
+    }
+    
+    // Try to get from Firestore cache
+    let cachedShow = null;
+    try {
+      cachedShow = await firestoreService.getCachedShow(showId);
+    } catch (error) {
+      console.error('Failed to get cached show from Firestore:', error);
+    }
+    
+    // If not cached, fetch from TMDb and cache it
+    if (!cachedShow) {
+      try {
+        console.log(`Show ${showId} not cached, fetching from TMDb...`);
+        const { tmdbService } = await import('./tmdb');
+        const showDetails = await tmdbService.getShowDetails(showId);
+        
+        // Create cached show object
+        cachedShow = {
+          id: showDetails.id,
+          name: showDetails.name,
+          overview: showDetails.overview,
+          poster_path: showDetails.poster_path,
+          backdrop_path: showDetails.backdrop_path,
+          first_air_date: showDetails.first_air_date,
+          last_air_date: showDetails.last_air_date || '',
+          number_of_episodes: showDetails.number_of_episodes,
+          number_of_seasons: showDetails.number_of_seasons,
+          status: showDetails.status,
+          vote_average: showDetails.vote_average,
+          genres: showDetails.genres,
+          networks: showDetails.networks || [],
+          cachedAt: new Date(),
+        };
+        
+        // Save to Firestore cache
+        try {
+          await firestoreService.saveCachedShow(cachedShow);
+          console.log(`Cached show ${showId}: ${showDetails.name}`);
+        } catch (error) {
+          console.error('Failed to cache show to Firestore:', error);
+          // Continue - we still have the data
+        }
+      } catch (error) {
+        console.error(`Failed to fetch show details for ${showId}:`, error);
+        return null;
+      }
+    }
+    
+    // Cache in memory for this session
+    if (cachedShow) {
+      this.showDetailsCache.set(showId, cachedShow);
+    }
+    
+    return cachedShow;
+  }
+
+  // Update show details in cache (when fetched in modal)
+  async updateCachedShowData(showId: number, showDetails: any) {
+    const cachedShow = {
+      id: showDetails.id,
+      name: showDetails.name,
+      overview: showDetails.overview,
+      poster_path: showDetails.poster_path,
+      backdrop_path: showDetails.backdrop_path,
+      first_air_date: showDetails.first_air_date,
+      last_air_date: showDetails.last_air_date || '',
+      number_of_episodes: showDetails.number_of_episodes,
+      number_of_seasons: showDetails.number_of_seasons,
+      status: showDetails.status,
+      vote_average: showDetails.vote_average,
+      genres: showDetails.genres,
+      networks: showDetails.networks || [],
+      cachedAt: new Date(),
+    };
+    
+    // Cache in memory
+    this.showDetailsCache.set(showId, cachedShow);
+    
+    // Save to Firestore cache
+    try {
+      await firestoreService.saveCachedShow(cachedShow);
+      console.log(`Updated cached show ${showId}: ${showDetails.name}`);
+    } catch (error) {
+      console.error('Failed to update cached show in Firestore:', error);
+    }
   }
 
   async getUserShowsWithDetails(userId: string) {
     await this.init();
     
     const userShows = await this.getUserShows(userId);
+    const userShowsWithDetails = [];
     
-    // Enhance each user show with cached show data
-    const showsWithDetails = await Promise.all(
-      userShows.map(async (userShow) => {
-        const cachedShow = await this.getCachedShowData(userShow.showId);
-        return {
-          ...userShow,
-          showDetails: cachedShow,
-        };
-      })
-    );
-
-    return showsWithDetails;
+    for (const userShow of userShows) {
+      const showDetails = await this.getCachedShowData(userShow.showId);
+      userShowsWithDetails.push({
+        ...userShow,
+        showDetails,
+      });
+    }
+    
+    return userShowsWithDetails;
   }
 
-  // Sync methods for cross-device functionality
-  async syncToFirestore(userId: string): Promise<void> {
-    if (!this.syncEnabled) return;
-    
-    await this.init();
-    
+  private async cacheShowData(show: TMDbShow): Promise<void> {
+    // Convert TMDbShow to CachedShow format and cache
+    const cachedShow = {
+      id: show.id,
+      name: show.name,
+      overview: show.overview,
+      poster_path: show.poster_path,
+      backdrop_path: show.backdrop_path,
+      first_air_date: show.first_air_date,
+      last_air_date: '',
+      number_of_episodes: 0,
+      number_of_seasons: 0,
+      status: 'Unknown',
+      vote_average: show.vote_average,
+      genres: show.genres || [],
+      networks: [],
+      cachedAt: new Date(),
+    };
+
+    // Cache in memory
+    this.showDetailsCache.set(show.id, cachedShow);
+
+    // Save to Firestore
     try {
-      const localShows = await dbService.getUserShows(userId);
-      await firestoreService.syncLocalDataToFirestore(userId, localShows);
-      console.log('Successfully synced local data to Firestore');
+      await firestoreService.saveCachedShow(cachedShow);
     } catch (error) {
-      console.error('Failed to sync to Firestore:', error);
-      throw error;
+      console.error('Failed to cache show data to Firestore:', error);
     }
   }
 
-  async syncFromFirestore(userId: string): Promise<void> {
-    if (!this.syncEnabled) return;
-    
-    await this.init();
-    
-    try {
-      const firestoreShows = await firestoreService.getUserShows(userId);
-      
-      // Update local database with Firestore data
-      for (const show of firestoreShows) {
-        await dbService.saveUserShow(show);
-      }
-      
-      // Update cache
-      this.userShows.set(userId, firestoreShows);
-      console.log('Successfully synced data from Firestore');
-    } catch (error) {
-      console.error('Failed to sync from Firestore:', error);
-      throw error;
-    }
-  }
-
-  // Real-time sync listener
-  subscribeToUpdates(userId: string, callback: (shows: UserShow[]) => void): () => void {
-    if (!this.syncEnabled) {
-      return () => {}; // Return empty unsubscribe function
-    }
-
-    return firestoreService.subscribeToUserShows(userId, (shows) => {
-      // Update local cache
-      this.userShows.set(userId, shows);
-      
-      // Update local database in background
-      Promise.all(shows.map(show => dbService.saveUserShow(show)))
-        .catch(error => console.error('Failed to sync updates to local database:', error));
-      
-      callback(shows);
-    });
-  }
-
-  // Migration helper - optionally sync local data to Firestore on first login
-  // This is now less aggressive and won't auto-migrate
-  async migrateToFirestore(userId: string, force: boolean = false): Promise<void> {
-    if (!this.syncEnabled || !force) return;
-    
-    await this.init();
-    
-    try {
-      // Get all local shows
-      const localShows = await dbService.getUserShows(userId);
-      
-      if (localShows.length > 0) {
-        console.log(`Migrating ${localShows.length} shows to Firestore...`);
-        await firestoreService.syncLocalDataToFirestore(userId, localShows);
-        console.log('Migration to Firestore completed');
-      }
-    } catch (error) {
-      console.error('Migration to Firestore failed:', error);
-      // Don't throw - continue with local functionality
-    }
-  }
-
-  // Clear cache when user signs out
-  clearCache(userId?: string) {
+  // Clear cache methods
+  clearUserCache(userId?: string) {
     if (userId) {
       this.userShows.delete(userId);
     } else {
@@ -506,21 +616,255 @@ class UserLibraryService {
     }
   }
 
-  // Replace local SQLite data with Firestore data (make Firestore authoritative)
-  private async replaceLocalDataWithFirestore(userId: string, firestoreShows: UserShow[]): Promise<void> {
+  clearShowDetailsCache() {
+    this.showDetailsCache.clear();
+  }
+
+  // Helper methods for the hook
+  async getLibraryStats(userId: string) {
+    const shows = await this.getUserShows(userId);
+    const watchedEpisodes = shows.reduce((total, show) => total + show.watchedEpisodes.length, 0);
+    const totalRating = shows.reduce((total, show) => show.rating ? total + show.rating : total, 0);
+    const ratedShows = shows.filter(show => show.rating).length;
+    
+    return {
+      totalShows: shows.length,
+      watching: shows.filter(show => show.status === 'watching').length,
+      wantToWatch: shows.filter(show => show.status === 'want-to-watch').length,
+      watched: shows.filter(show => show.status === 'watched').length,
+      totalEpisodesWatched: watchedEpisodes,
+      averageRating: ratedShows > 0 ? totalRating / ratedShows : 0,
+    };
+  }
+
+  async subscribeToUpdates(userId: string, callback: (shows: UserShow[]) => void) {
+    // Set up real-time Firestore listener
     try {
-      // Clear all local shows for this user
-      await dbService.clearUserShows(userId);
+      const unsubscribe = await firestoreService.subscribeToUserShows(userId, (shows) => {
+        // Update local cache
+        this.userShows.set(userId, shows);
+        // Notify callback
+        callback(shows);
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error('Failed to set up real-time listener:', error);
+      // Return dummy unsubscribe function as fallback
+      return () => {};
+    }
+  }
+
+  async rateShow(userId: string, showId: number, rating: number) {
+    return this.updateShowRating(userId, showId, rating);
+  }
+
+  async addNoteToShow(userId: string, showId: number, notes: string) {
+    return this.updateShowNotes(userId, showId, notes);
+  }
+
+  async isShowInLibrary(userId: string, showId: number): Promise<boolean> {
+    const shows = await this.getUserShows(userId);
+    return shows.some(show => show.showId === showId);
+  }
+
+  async getUserShowForShow(userId: string, showId: number) {
+    const shows = await this.getUserShows(userId);
+    return shows.find(show => show.showId === showId) || null;
+  }
+
+  // Sync methods (no-op for Firestore-only implementation)
+  async syncToFirestore(userId: string) {
+    // No-op - we're already using Firestore
+    console.log('Sync to Firestore: Already using Firestore as primary storage');
+  }
+
+  async syncFromFirestore(userId: string) {
+    // Just refresh the cache
+    this.clearUserCache(userId);
+    await this.getUserShows(userId);
+  }
+
+  async migrateToFirestore(userId: string, force: boolean = false) {
+    // No-op - we're already using Firestore
+    console.log('Migrate to Firestore: Already using Firestore as primary storage');
+  }
+
+  // Optimistic update methods for better UX
+  async markEpisodeWatchedOptimistic(
+    userId: string, 
+    showId: number, 
+    season: number,
+    episode: number
+  ): Promise<void> {
+    // First, update the local cache optimistically
+    const cachedShows = this.userShows.get(userId) || [];
+    const showIndex = cachedShows.findIndex(s => s.showId === showId);
+    
+    if (showIndex >= 0) {
+      const userShow = { ...cachedShows[showIndex] };
+      const alreadyWatched = userShow.watchedEpisodes.some(
+        ep => ep.seasonNumber === season && ep.episodeNumber === episode
+      );
+
+      if (!alreadyWatched) {
+        userShow.watchedEpisodes = [...userShow.watchedEpisodes, {
+          seasonNumber: season,
+          episodeNumber: episode,
+          watchedAt: new Date(),
+        }];
+        userShow.updatedAt = new Date();
+        
+        // Update cache immediately
+        const updatedShows = [...cachedShows];
+        updatedShows[showIndex] = userShow;
+        this.userShows.set(userId, updatedShows);
+        
+        // Then save to Firestore in background
+        try {
+          await this.markEpisodeWatched(userId, showId, season, episode);
+        } catch (error) {
+          // Revert optimistic update on error
+          this.userShows.set(userId, cachedShows);
+          throw error;
+        }
+      }
+    }
+  }
+
+  async markSeasonWatchedOptimistic(
+    userId: string, 
+    showId: number, 
+    seasonNumber: number,
+    episodes: { episode_number: number }[]
+  ): Promise<void> {
+    // Optimistic update
+    const cachedShows = this.userShows.get(userId) || [];
+    const showIndex = cachedShows.findIndex(s => s.showId === showId);
+    
+    if (showIndex >= 0) {
+      const userShow = { ...cachedShows[showIndex] };
+      const originalWatchedEpisodes = [...userShow.watchedEpisodes];
       
-      // Repopulate with Firestore data
-      for (const show of firestoreShows) {
-        await dbService.saveUserShow(show);
+      // Add all episodes optimistically
+      episodes.forEach(ep => {
+        const alreadyWatched = userShow.watchedEpisodes.some(
+          watchedEp => watchedEp.seasonNumber === seasonNumber && watchedEp.episodeNumber === ep.episode_number
+        );
+
+        if (!alreadyWatched) {
+          userShow.watchedEpisodes.push({
+            seasonNumber: seasonNumber,
+            episodeNumber: ep.episode_number,
+            watchedAt: new Date(),
+          });
+        }
+      });
+      
+      userShow.updatedAt = new Date();
+      if (episodes.length > 0) {
+        const lastEpisode = episodes[episodes.length - 1];
+        userShow.currentSeason = seasonNumber;
+        userShow.currentEpisode = lastEpisode.episode_number;
       }
       
-      console.log(`Replaced local cache with ${firestoreShows.length} shows from Firestore`);
+      // Update cache immediately
+      const updatedShows = [...cachedShows];
+      updatedShows[showIndex] = userShow;
+      this.userShows.set(userId, updatedShows);
+      
+      // Save to Firestore in background
+      try {
+        await this.markSeasonWatched(userId, showId, seasonNumber, episodes);
+      } catch (error) {
+        // Revert optimistic update on error
+        const revertedUserShow = { ...userShow };
+        revertedUserShow.watchedEpisodes = originalWatchedEpisodes;
+        updatedShows[showIndex] = revertedUserShow;
+        this.userShows.set(userId, updatedShows);
+        throw error;
+      }
+    }
+  }
+
+  setOnlineStatus(online: boolean) {
+    const wasOffline = !this.isOnline;
+    this.isOnline = online;
+    
+    // If coming back online, sync pending operations
+    if (wasOffline && online) {
+      this.syncPendingOperations();
+    }
+  }
+
+  private async syncPendingOperations() {
+    for (const [userId, operations] of this.pendingOperations) {
+      try {
+        for (const operation of operations) {
+          await this.executeOperation(operation);
+        }
+        // Clear pending operations after successful sync
+        this.pendingOperations.delete(userId);
+      } catch (error) {
+        console.error('Failed to sync pending operations for user:', userId, error);
+      }
+    }
+  }
+
+  private async executeOperation(operation: any) {
+    switch (operation.type) {
+      case 'markEpisodeWatched':
+        await this.markEpisodeWatched(operation.userId, operation.showId, operation.season, operation.episode);
+        break;
+      case 'markSeasonWatched':
+        await this.markSeasonWatched(operation.userId, operation.showId, operation.seasonNumber, operation.episodes);
+        break;
+      // Add more operation types as needed
+    }
+  }
+
+  private addPendingOperation(userId: string, operation: any) {
+    if (!this.pendingOperations.has(userId)) {
+      this.pendingOperations.set(userId, []);
+    }
+    this.pendingOperations.get(userId)!.push(operation);
+  }
+
+  async markEpisodeWatchedOfflineAware(
+    userId: string, 
+    showId: number, 
+    season: number,
+    episode: number
+  ): Promise<void> {
+    // Always update local cache first
+    await this.markEpisodeWatchedOptimistic(userId, showId, season, episode);
+    
+    if (!this.isOnline) {
+      // Store operation for later sync
+      this.addPendingOperation(userId, {
+        type: 'markEpisodeWatched',
+        userId,
+        showId,
+        season,
+        episode,
+        timestamp: Date.now()
+      });
+      return;
+    }
+    
+    // If online, sync immediately
+    try {
+      await this.markEpisodeWatched(userId, showId, season, episode);
     } catch (error) {
-      console.error('Failed to replace local data with Firestore data:', error);
-      // Don't throw - we still have the Firestore data in memory
+      // If sync fails, add to pending operations
+      this.addPendingOperation(userId, {
+        type: 'markEpisodeWatched',
+        userId,
+        showId,
+        season,
+        episode,
+        timestamp: Date.now()
+      });
+      throw error;
     }
   }
 }

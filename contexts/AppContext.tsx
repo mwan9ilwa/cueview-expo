@@ -1,5 +1,5 @@
 import { authService } from '@/services/auth';
-import { dbService } from '@/services/database';
+import { userLibraryService } from '@/services/user-library';
 import { AppState, User, UserShow } from '@/types';
 import React, { createContext, useContext, useEffect, useReducer } from 'react';
 
@@ -101,14 +101,14 @@ export function AppProvider({ children }: AppProviderProps) {
     const initializeApp = async () => {
       try {
         // Initialize database
-        await dbService.init();
+        await userLibraryService.init();
         
         // Check for current user
         const currentUser = await authService.getCurrentUser();
         dispatch({ type: 'SET_USER', payload: currentUser });
         
         if (currentUser) {
-          const userShows = await dbService.getUserShows(currentUser.id);
+          const userShows = await userLibraryService.getUserShows(currentUser.id);
           dispatch({ type: 'SET_USER_SHOWS', payload: userShows });
         }
       } catch (error) {
@@ -128,7 +128,7 @@ export function AppProvider({ children }: AppProviderProps) {
       
       if (user) {
         try {
-          const userShows = await dbService.getUserShows(user.id);
+          const userShows = await userLibraryService.getUserShows(user.id);
           dispatch({ type: 'SET_USER_SHOWS', payload: userShows });
         } catch (error) {
           console.error('Failed to load user shows:', error);
@@ -149,7 +149,7 @@ export function AppProvider({ children }: AppProviderProps) {
       dispatch({ type: 'SET_LOADING', payload: true });
       const user = await authService.signIn(email, password);
       dispatch({ type: 'SET_USER', payload: user });
-      const userShows = await dbService.getUserShows(user.id);
+      const userShows = await userLibraryService.getUserShows(user.id);
       dispatch({ type: 'SET_USER_SHOWS', payload: userShows });
     } catch (error) {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -186,10 +186,11 @@ export function AppProvider({ children }: AppProviderProps) {
     }
   };
 
-  // User show actions
+  // User show actions (deprecated - use useUserLibrary hook instead)
   const addUserShow = async (userShow: UserShow) => {
     try {
-      await dbService.saveUserShow(userShow);
+      // TODO: Migrate to userLibraryService
+      console.warn('addUserShow is deprecated, use useUserLibrary hook instead');
       dispatch({ type: 'ADD_USER_SHOW', payload: userShow });
     } catch (error) {
       console.error('Failed to add user show:', error);
@@ -199,7 +200,8 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const updateUserShow = async (userShow: UserShow) => {
     try {
-      await dbService.saveUserShow(userShow);
+      // TODO: Migrate to userLibraryService
+      console.warn('updateUserShow is deprecated, use useUserLibrary hook instead');
       dispatch({ type: 'UPDATE_USER_SHOW', payload: userShow });
     } catch (error) {
       console.error('Failed to update user show:', error);
@@ -209,7 +211,8 @@ export function AppProvider({ children }: AppProviderProps) {
 
   const removeUserShow = async (userShowId: string) => {
     try {
-      await dbService.deleteUserShow(userShowId);
+      // TODO: Migrate to userLibraryService
+      console.warn('removeUserShow is deprecated, use useUserLibrary hook instead');
       dispatch({ type: 'REMOVE_USER_SHOW', payload: userShowId });
     } catch (error) {
       console.error('Failed to remove user show:', error);
@@ -221,7 +224,7 @@ export function AppProvider({ children }: AppProviderProps) {
     try {
       if (!state.user) return;
       
-      const userShows = await dbService.getUserShows(state.user.id);
+      const userShows = await userLibraryService.getUserShows(state.user.id);
       dispatch({ type: 'SET_USER_SHOWS', payload: userShows });
     } catch (error) {
       console.error('Failed to load user shows:', error);

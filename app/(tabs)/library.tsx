@@ -1,11 +1,11 @@
-import LibraryShowCard from '@/components/LibraryShowCard';
 import LoadingScreen from '@/components/LoadingScreen';
+import ShowCard from '@/components/ShowCard';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
-import { getShowStatusInfo } from '@/services/tmdb';
+import { getShowStatusInfo, TMDbShow } from '@/services/tmdb';
 import { UserShowWithDetails } from '@/types';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { router } from 'expo-router';
@@ -65,7 +65,8 @@ export default function LibraryScreen() {
     }
   };
 
-  const handleShowPress = (showId: number) => {
+  const handleShowPress = (showIdOrShow: number | TMDbShow) => {
+    const showId = typeof showIdOrShow === 'number' ? showIdOrShow : showIdOrShow.id;
     router.push(`/show/${showId}`);
   };
 
@@ -75,6 +76,11 @@ export default function LibraryScreen() {
     } catch (error) {
       console.error('Error updating progress:', error);
     }
+  };
+
+  const handleShowDetailsUpdated = async (showId: number, showDetails: any) => {
+    // Refresh the library to get updated show details
+    await refreshLibrary();
   };
 
   // Group shows by their status for better organization
@@ -216,15 +222,19 @@ export default function LibraryScreen() {
             </View>
           )}
           
-          {shows.map((userShow) => (
-            <LibraryShowCard
-              key={userShow.id}
-              userShow={userShow}
-              onPress={handleShowPress}
-              onUpdateProgress={handleUpdateProgress}
-              showProgress={activeTab === 'watching'}
-            />
-          ))}
+          <View style={styles.showsGrid}>
+            {shows.map((userShow) => (
+              <ShowCard
+                key={userShow.id}
+                userShow={userShow}
+                onPress={handleShowPress}
+                onUpdateProgress={handleUpdateProgress}
+                onShowDetailsUpdated={handleShowDetailsUpdated}
+                showProgress={activeTab === 'watching'}
+                userId={user?.id}
+              />
+            ))}
+          </View>
         </View>
       );
     };
@@ -362,7 +372,6 @@ export default function LibraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f7',
   },
   header: {
     padding: 20,
@@ -484,7 +493,6 @@ const styles = StyleSheet.create({
   },
   showsContainer: {
     padding: 5,
-    backgroundColor: '#f5f5f7',
   },
   signInPrompt: {
     flex: 1,
@@ -534,7 +542,13 @@ const styles = StyleSheet.create({
   },
   showsList: {
     padding: 0,
-    backgroundColor: '#f5f5f7',
+  },
+  showsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingHorizontal: 12,
+    gap: 8,
   },
   statsText: {
     fontSize: 16,
