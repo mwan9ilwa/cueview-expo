@@ -10,7 +10,7 @@ import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-nat
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
-  const { stats, watchingShowsWithDetails, wantToWatchShowsWithDetails, watchedShowsWithDetails } = useUserLibrary();
+  const { watchingShowsWithDetails } = useUserLibrary();
 
   const handleSignOut = () => {
     Alert.alert(
@@ -89,55 +89,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const calculateStats = () => {
-    const totalShows = watchingShowsWithDetails.length + wantToWatchShowsWithDetails.length + watchedShowsWithDetails.length;
-    const totalEpisodes = stats.totalEpisodesWatched || 0;
-    // Mock calculation for total minutes watched (in real app, this would be tracked)
-    const totalMinutes = totalEpisodes * 45; // Assuming 45 min average per episode
-    const totalHours = Math.floor(totalMinutes / 60);
-    const remainingMinutes = totalMinutes % 60;
-
-    // Calculate genre distribution
-    const genreCounts: { [key: string]: number } = {};
-    [...watchingShowsWithDetails, ...wantToWatchShowsWithDetails, ...watchedShowsWithDetails].forEach(show => {
-      if (show.showDetails?.genres) {
-        show.showDetails.genres.forEach(genre => {
-          genreCounts[genre.name] = (genreCounts[genre.name] || 0) + 1;
-        });
-      }
-    });
-
-    const topGenres = Object.entries(genreCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 3)
-      .map(([genre]) => genre);
-
-    return {
-      totalShows,
-      totalEpisodes,
-      totalHours,
-      remainingMinutes,
-      topGenres,
-      watchingCount: watchingShowsWithDetails.length,
-      wantToWatchCount: wantToWatchShowsWithDetails.length,
-      watchedCount: watchedShowsWithDetails.length,
-    };
-  };
-
-  const userStats = calculateStats();
-
-  const renderStatCard = (title: string, value: string | number, subtitle?: string) => (
-    <View style={styles.statCard}>
-      <ThemedText type="defaultSemiBold" style={styles.statValue}>
-        {value}
-      </ThemedText>
-      <ThemedText style={styles.statTitle}>{title}</ThemedText>
-      {subtitle && (
-        <ThemedText style={styles.statSubtitle}>{subtitle}</ThemedText>
-      )}
-    </View>
-  );
-
   if (!user) {
     return (
       <ScrollView style={styles.container}>
@@ -187,55 +138,6 @@ export default function ProfileScreen() {
               </ThemedText>
             </View>
           </View>
-        </ThemedView>
-
-        {/* Statistics & Insights */}
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Your Watching Statistics</ThemedText>
-          
-          <View style={styles.statsGrid}>
-            {renderStatCard('Total Shows', userStats.totalShows, 'in your library')}
-            {renderStatCard('Episodes Watched', userStats.totalEpisodes, 'and counting')}
-            {renderStatCard('Watch Time', `${userStats.totalHours}h ${userStats.remainingMinutes}m`, 'total viewing time')}
-          </View>
-
-          <View style={styles.libraryBreakdown}>
-            <ThemedText type="defaultSemiBold" style={styles.breakdownTitle}>Library Breakdown</ThemedText>
-            <View style={styles.breakdownStats}>
-              <View style={styles.breakdownItem}>
-                <View style={[styles.breakdownDot, { backgroundColor: '#34C759' }]} />
-                <ThemedText style={styles.breakdownText}>
-                  {userStats.watchingCount} Currently Watching
-                </ThemedText>
-              </View>
-              <View style={styles.breakdownItem}>
-                <View style={[styles.breakdownDot, { backgroundColor: '#FF9500' }]} />
-                <ThemedText style={styles.breakdownText}>
-                  {userStats.wantToWatchCount} Want to Watch
-                </ThemedText>
-              </View>
-              <View style={styles.breakdownItem}>
-                <View style={[styles.breakdownDot, { backgroundColor: '#007AFF' }]} />
-                <ThemedText style={styles.breakdownText}>
-                  {userStats.watchedCount} Completed
-                </ThemedText>
-              </View>
-            </View>
-          </View>
-
-          {userStats.topGenres.length > 0 && (
-            <View style={styles.genrePreferences}>
-              <ThemedText type="defaultSemiBold" style={styles.genreTitle}>Top Genres</ThemedText>
-              <View style={styles.genreList}>
-                {userStats.topGenres.map((genre, index) => (
-                  <View key={genre} style={styles.genreItem}>
-                    <ThemedText style={styles.genreRank}>{index + 1}</ThemedText>
-                    <ThemedText style={styles.genreName}>{genre}</ThemedText>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
         </ThemedView>
 
         {/* Notifications Management */}

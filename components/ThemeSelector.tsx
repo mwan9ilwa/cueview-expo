@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useTheme, ThemeMode } from '@/contexts/ThemeContext';
+import { ThemeMode, useTheme } from '@/contexts/ThemeContext';
+import React from 'react';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export function ThemeSelector() {
   const { themeMode, setThemeMode, isDark } = useTheme();

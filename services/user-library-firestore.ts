@@ -58,6 +58,9 @@ class UserLibraryService {
       watchedEpisodes: [],
       addedAt: new Date(),
       updatedAt: new Date(),
+      totalRewatches: 0,
+      favoriteEpisodes: [],
+      totalWatchTimeMinutes: 0,
     };
 
     // Save to Firestore
