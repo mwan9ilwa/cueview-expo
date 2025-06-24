@@ -1,5 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { ThemeSelector } from '@/components/ThemeSelector';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
@@ -289,14 +290,7 @@ export default function ProfileScreen() {
 
         {/* Settings */}
         <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Settings</ThemedText>
-          <ThemedView style={styles.settingsPreview}>
-            <ThemedText style={styles.comingSoonText}>⚙️ Settings coming soon:</ThemedText>
-            <ThemedText style={styles.featureItem}>• Theme selection (Light/Dark)</ThemedText>
-            <ThemedText style={styles.featureItem}>• Notification preferences</ThemedText>
-            <ThemedText style={styles.featureItem}>• Privacy settings</ThemedText>
-            <ThemedText style={styles.featureItem}>• Data export/import</ThemedText>
-          </ThemedView>
+          <ThemeSelector />
         </ThemedView>
 
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>

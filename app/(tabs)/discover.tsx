@@ -242,6 +242,9 @@ export default function DiscoverScreen() {
             />
           </View>
         );
+      
+      default:
+        return null;
     }
   };
 

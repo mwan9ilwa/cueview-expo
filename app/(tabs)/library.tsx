@@ -9,11 +9,12 @@ import { getShowStatusInfo, TMDbShow } from '@/services/tmdb';
 import { UserShowWithDetails } from '@/types';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Alert, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 type LibraryTab = 'watching' | 'want-to-watch' | 'watched';
+type SortOption = 'name' | 'date-added' | 'next-episode' | 'rating';
 
 export default function LibraryScreen() {
   const { user } = useAuth();
@@ -32,6 +33,9 @@ export default function LibraryScreen() {
   const [activeTab, setActiveTab] = useState<LibraryTab>('watching');
   const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [showFilters, setShowFilters] = useState(false);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -118,6 +122,80 @@ export default function LibraryScreen() {
     return groups;
   };
 
+  // Filter and sort shows based on search and sort options
+  const getFilteredAndSortedShows = useMemo(() => {
+    let shows: UserShowWithDetails[] = [];
+    
+    // Get shows for current tab
+    switch (activeTab) {
+      case 'watching':
+        shows = watchingShowsWithDetails;
+        break;
+      case 'want-to-watch':
+        shows = wantToWatchShowsWithDetails;
+        break;
+      case 'watched':
+        shows = watchedShowsWithDetails;
+        break;
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      shows = shows.filter(show => 
+        show.showDetails?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        show.showDetails?.overview?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Sort shows
+    shows.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return (a.showDetails?.name || '').localeCompare(b.showDetails?.name || '');
+        case 'date-added':
+          return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+        case 'rating':
+          return (b.showDetails?.vote_average || 0) - (a.showDetails?.vote_average || 0);
+        case 'next-episode':
+          // Sort by show status priority, then by other criteria
+          const getShowPriority = (show: UserShowWithDetails) => {
+            if (!show.showDetails) return 999;
+            const status = show.showDetails.status?.toLowerCase() || '';
+            const statusInfo = getShowStatusInfo(show.showDetails);
+            
+            // Higher priority shows come first (lower number = higher priority)
+            if (status === 'returning series' || status === 'on the air') return 1;
+            if (statusInfo.isBetweenSeasons) return 2;
+            if (status === 'in production' || status === 'planned') return 3;
+            if (status === 'ended' || status === 'canceled') return 4;
+            return 5;
+          };
+          
+          const priorityA = getShowPriority(a);
+          const priorityB = getShowPriority(b);
+          
+          if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+          }
+          
+          // If same priority, sort by last air date (more recent first for ongoing shows)
+          const lastAirA = a.showDetails?.last_air_date;
+          const lastAirB = b.showDetails?.last_air_date;
+          
+          if (lastAirA && lastAirB) {
+            return new Date(lastAirB).getTime() - new Date(lastAirA).getTime();
+          }
+          
+          // Fallback to name sort
+          return (a.showDetails?.name || '').localeCompare(b.showDetails?.name || '');
+        default:
+          return 0;
+      }
+    });
+
+    return shows;
+  }, [activeTab, watchingShowsWithDetails, wantToWatchShowsWithDetails, watchedShowsWithDetails, searchQuery, sortBy]);
+
   // Sort shows by next episode air date (future feature)
   /* 
   const sortShowsByNextEpisode = async (shows: UserShowWithDetails[]) => {
@@ -152,13 +230,6 @@ export default function LibraryScreen() {
   };
   */
 
-  // Map user shows status to component-compatible data
-  const userShows = {
-    watching: watchingShowsWithDetails,
-    'want-to-watch': wantToWatchShowsWithDetails,
-    watched: watchedShowsWithDetails,
-  };
-
   const tabs: { key: LibraryTab; label: string; color: string; icon: string }[] = [
     { key: 'watching', label: 'Watching', color: '#34C759', icon: 'tv.fill' },
     { key: 'want-to-watch', label: 'Watchlist', color: '#FF9500', icon: 'plus' },
@@ -190,18 +261,30 @@ export default function LibraryScreen() {
   };
 
   const renderTabContent = () => {
-    const shows = userShows[activeTab];
+    const filteredShows = getFilteredAndSortedShows;
     
     if (loading) {
       return <LoadingScreen message="Loading your shows..." />;
     }
     
-    if (shows.length === 0) {
+    if (filteredShows.length === 0) {
+      if (searchQuery.trim()) {
+        return (
+          <ThemedView style={styles.emptyContainer}>
+            <ThemedText style={styles.emptyMessage}>
+              No shows found matching &quot;{searchQuery}&quot;
+            </ThemedText>
+            <ThemedText style={styles.emptyHint}>
+              Try adjusting your search terms or browse all shows.
+            </ThemedText>
+          </ThemedView>
+        );
+      }
       return renderEmptyState(activeTab);
     }
 
     // Group shows by status for better organization
-    const groupedShows = groupShowsByStatus(shows);
+    const groupedShows = groupShowsByStatus(filteredShows);
     
     const renderShowGroup = (title: string | null, shows: UserShowWithDetails[], color: string, iconName: string) => {
       if (shows.length === 0) return null;
@@ -361,6 +444,71 @@ export default function LibraryScreen() {
           activeFontStyle={{ fontSize: 14, fontWeight: '700', color: 'white' }}
         />
       </ThemedView>
+
+      {/* Search and Filter Controls */}
+      <ThemedView style={styles.searchContainer}>
+        <View style={styles.searchInputContainer}>
+          <IconSymbol name="magnifyingglass" size={16} color="#999" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search shows..."
+            placeholderTextColor="#999"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            clearButtonMode="while-editing"
+          />
+        </View>
+        
+        <TouchableOpacity
+          style={[styles.filterButton, showFilters && styles.filterButtonActive]}
+          onPress={() => setShowFilters(!showFilters)}
+        >
+          <IconSymbol name="slider.horizontal.3" size={16} color={showFilters ? '#007AFF' : '#666'} />
+        </TouchableOpacity>
+      </ThemedView>
+
+      {/* Filter Panel */}
+      {showFilters && (
+        <ThemedView style={styles.filterPanel}>
+          <View style={styles.filterRow}>
+            <ThemedText style={styles.filterLabel}>Sort by:</ThemedText>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.sortOptions}
+              contentContainerStyle={styles.sortOptionsContent}
+            >
+              {([
+                { key: 'name', label: 'Name', icon: 'textformat.alt' },
+                { key: 'date-added', label: 'Date Added', icon: 'calendar' },
+                { key: 'rating', label: 'Rating', icon: 'star.fill' },
+                { key: 'next-episode', label: 'Next Episode', icon: 'clock' },
+              ] as const).map((option) => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.sortOption,
+                    sortBy === option.key && styles.sortOptionActive
+                  ]}
+                  onPress={() => setSortBy(option.key)}
+                >
+                  <IconSymbol 
+                    name={option.icon} 
+                    size={14} 
+                    color={sortBy === option.key ? '#007AFF' : '#666'} 
+                  />
+                  <ThemedText style={[
+                    styles.sortOptionText,
+                    sortBy === option.key && styles.sortOptionTextActive
+                  ]}>
+                    {option.label}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </ThemedView>
+      )}
 
       {/* Tab Content */}
       <ScrollView style={styles.content}>
@@ -646,5 +794,95 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#666',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 12,
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  searchIcon: {
+    opacity: 0.6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+  },
+  filterButton: {
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  filterButtonActive: {
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    borderColor: '#007AFF',
+  },
+  filterPanel: {
+    backgroundColor: '#f8f9fa',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+    paddingVertical: 12,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    gap: 16,
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    minWidth: 60,
+  },
+  sortOptions: {
+    flex: 1,
+  },
+  sortOptionsContent: {
+    paddingRight: 20,
+    gap: 8,
+  },
+  sortOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  sortOptionActive: {
+    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    borderColor: '#007AFF',
+  },
+  sortOptionText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  sortOptionTextActive: {
+    color: '#007AFF',
+    fontWeight: '600',
   },
 });
