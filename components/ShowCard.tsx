@@ -1,10 +1,13 @@
+import CachedImage from '@/components/CachedImage';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
+import { realTimeEpisodeService } from '@/services/real-time-episodes';
+import { streamingIntegrationService } from '@/services/streaming-integration';
 import { tmdbService, TMDbShow } from '@/services/tmdb';
 import { UserShowWithDetails } from '@/types';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import SeasonEpisodeModal from './SeasonEpisodeModal';
 
 interface ShowCardProps {
@@ -32,6 +35,11 @@ export default function ShowCard({
 }: ShowCardProps) {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [nextAirDate, setNextAirDate] = useState<{ date: string; episodeInfo: string } | null>(null);
+  const [streamingProviders, setStreamingProviders] = useState<any[]>([]);
+  const [loadingStreaming, setLoadingStreaming] = useState(false);
+  const [isAiringToday, setIsAiringToday] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 2;
   
   // Determine which show data to use
   const displayShow = userShow?.showDetails || show;
@@ -48,7 +56,31 @@ export default function ShowCard({
         return;
       }
 
-      // Get next episode info based on current progress
+      // Use real-time episode service for better accuracy
+      if (userId) {
+        try {
+          const upcomingEpisodes = await realTimeEpisodeService.getUpcomingEpisodes(userId);
+          const showUpcoming = upcomingEpisodes.find((ep: any) => ep.showId === displayShow.id);
+          
+          if (showUpcoming) {
+            const airDate = new Date(showUpcoming.airDate);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            airDate.setHours(0, 0, 0, 0);
+            
+            setIsAiringToday(airDate.getTime() === today.getTime());
+            setNextAirDate({
+              date: formatAirDateWithTime(new Date(showUpcoming.airDate)),
+              episodeInfo: `S${showUpcoming.seasonNumber}E${showUpcoming.episodeNumber}`
+            });
+            return;
+          }
+        } catch (realTimeError) {
+          console.warn('Real-time episode service failed, falling back to TMDb:', realTimeError);
+        }
+      }
+
+      // Fallback to original TMDb logic
       const currentSeason = userShow.currentSeason || 1;
       const currentEpisode = userShow.currentEpisode || 0;
       
@@ -96,7 +128,7 @@ export default function ShowCard({
       console.error('Error fetching next air date:', error);
       setNextAirDate(null);
     }
-  }, [userShow, displayShow]);
+  }, [userShow, displayShow, userId]);
 
   const formatAirDateWithTime = (date: Date): string => {
     const now = new Date();
@@ -146,12 +178,45 @@ export default function ShowCard({
     }
   };
 
+  const loadStreamingProviders = useCallback(async () => {
+    if (!displayShow?.id) return;
+    
+    try {
+      setLoadingStreaming(true);
+      const availability = await streamingIntegrationService.getStreamingAvailability(displayShow.id);
+      if (availability?.flatrate) {
+        setStreamingProviders(availability.flatrate);
+      }
+      setRetryCount(0); // Reset retry count on success
+    } catch (error) {
+      console.error('Error loading streaming providers:', error);
+      // Retry logic for streaming providers
+      if (retryCount < maxRetries) {
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          loadStreamingProviders();
+        }, 1000 * (retryCount + 1)); // Progressive delay
+      }
+    } finally {
+      setLoadingStreaming(false);
+    }
+  }, [displayShow?.id, retryCount, maxRetries]);
+
   // Fetch next air date for user shows in list layout
   useEffect(() => {
     if (layout === 'list' && isUserShow && userShow && displayShow) {
       fetchNextAirDate();
     }
   }, [layout, isUserShow, userShow, displayShow, fetchNextAirDate]);
+  
+  useEffect(() => {
+    if (userShow && userId) {
+      fetchNextAirDate();
+    }
+    if (displayShow?.id) {
+      loadStreamingProviders();
+    }
+  }, [userShow, userId, displayShow?.id, fetchNextAirDate, loadStreamingProviders]);
   
   if (!displayShow) return null;
   
@@ -188,10 +253,14 @@ export default function ShowCard({
     >
       <View style={layout === 'list' ? styles.listPosterContainer : styles.posterContainer}>
         {posterUrl ? (
-          <Image 
-            source={{ uri: posterUrl }} 
+          <CachedImage 
+            uri={posterUrl}
             style={styles.poster}
-            resizeMode="cover"
+            fallback={
+              <View style={styles.placeholderPoster}>
+                <IconSymbol name="tv.fill" size={24} color="#999" />
+              </View>
+            }
           />
         ) : (
           <View style={styles.placeholderPoster}>
@@ -213,6 +282,20 @@ export default function ShowCard({
           >
             <IconSymbol name="tv.fill" size={14} color="white" />
           </TouchableOpacity>
+        )}
+
+        {/* Airing today indicator */}
+        {isAiringToday && (
+          <View style={styles.airingTodayBadge}>
+            <ThemedText style={styles.airingTodayText}>LIVE</ThemedText>
+          </View>
+        )}
+
+        {/* Streaming provider indicator */}
+        {streamingProviders.length > 0 && layout === 'grid' && (
+          <View style={styles.streamingIndicator}>
+            <IconSymbol name="play.circle.fill" size={16} color="#00C851" />
+          </View>
         )}
       </View>
       
@@ -249,6 +332,22 @@ export default function ShowCard({
             <IconSymbol name="calendar" size={12} color="#007AFF" />
             <ThemedText style={styles.airDateText}>
               {nextAirDate.episodeInfo ? `${nextAirDate.episodeInfo} • ${nextAirDate.date}` : nextAirDate.date}
+            </ThemedText>
+            {isAiringToday && (
+              <View style={styles.airingTodayBadge}>
+                <ThemedText style={styles.airingTodayText}>AIRING TODAY</ThemedText>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Streaming providers for list layout */}
+        {layout === 'list' && streamingProviders.length > 0 && (
+          <View style={styles.streamingContainer}>
+            <IconSymbol name="play.circle.fill" size={12} color="#00C851" />
+            <ThemedText style={styles.streamingText}>
+              Available on {streamingProviders.slice(0, 2).map(p => p.provider_name).join(', ')}
+              {streamingProviders.length > 2 && ` +${streamingProviders.length - 2} more`}
             </ThemedText>
           </View>
         )}
@@ -410,6 +509,37 @@ const styles = StyleSheet.create({
   airDateText: {
     fontSize: 13,
     color: '#007AFF',
+    fontWeight: '500',
+  },
+  airingTodayBadge: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  airingTodayText: {
+    fontSize: 10,
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  streamingIndicator: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 12,
+    padding: 4,
+  },
+  streamingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  streamingText: {
+    fontSize: 12,
+    color: '#00C851',
     fontWeight: '500',
   },
 });

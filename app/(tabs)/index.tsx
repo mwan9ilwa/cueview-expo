@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useHomeScreenData } from '@/hooks/useHomeScreenData';
+import { useRealTimeEpisodes } from '@/hooks/useRealTimeEpisodes';
 import { TMDbShow } from '@/services/tmdb';
 export default function HomeScreen() {
   const { user, isLoading: authLoading } = useAuth();
@@ -20,6 +21,12 @@ export default function HomeScreen() {
     loading: dataLoading,
     error,
   } = useHomeScreenData();
+  
+  const {
+    episodesAiringToday,
+    upcomingEpisodes,
+    loading: realTimeLoading,
+  } = useRealTimeEpisodes();
 
   const [refreshing, setRefreshing] = React.useState(false);
 
@@ -42,6 +49,16 @@ export default function HomeScreen() {
   // Create sections for the FlatList
   const createSections = () => {
     const sections = [];
+
+    // Episodes Airing Today Section
+    if (episodesAiringToday.length > 0) {
+      sections.push({
+        type: 'airing_today',
+        title: 'Airing Today',
+        data: episodesAiringToday,
+        loading: realTimeLoading,
+      });
+    }
 
     // Continue Watching Section
     if (continueWatching.length > 0) {
@@ -85,6 +102,50 @@ export default function HomeScreen() {
 
   const renderSectionItem = ({ item: section }: { item: any }) => {
     switch (section.type) {
+      case 'airing_today':
+        if (section.loading) {
+          return (
+            <View style={styles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+                {section.title}
+              </ThemedText>
+              <View style={styles.loadingContainer}>
+                <IconSymbol name="tv.fill" size={16} color="#FF3B30" />
+                <ThemedText style={styles.loadingText}>Loading episodes...</ThemedText>
+              </View>
+            </View>
+          );
+        }
+
+        return (
+          <View style={styles.horizontalSection}>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+              {section.title}
+            </ThemedText>
+            <FlatList
+              data={section.data}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalList}
+              keyExtractor={(item) => `${item.showId}-${item.seasonNumber}-${item.episodeNumber}`}
+              renderItem={({ item }) => (
+                <View style={styles.airingTodayCard}>
+                  <ThemedText style={styles.airingTodayShow}>{item.showName}</ThemedText>
+                  <ThemedText style={styles.airingTodayEpisode}>
+                    S{item.seasonNumber}E{item.episodeNumber}
+                  </ThemedText>
+                  <ThemedText style={styles.airingTodayTitle} numberOfLines={2}>
+                    {item.episodeName}
+                  </ThemedText>
+                  <View style={styles.airingTodayBadge}>
+                    <IconSymbol name="tv.fill" size={12} color="white" />
+                    <ThemedText style={styles.airingTodayBadgeText}>LIVE</ThemedText>
+                  </View>
+                </View>
+              )}
+            />
+          </View>
+        );
       case 'horizontal_list':
         if (section.loading) {
           return (
@@ -264,5 +325,45 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 20,
+  },
+  airingTodayCard: {
+    width: 200,
+    marginRight: 12,
+    padding: 12,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF3B30',
+  },
+  airingTodayShow: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  airingTodayEpisode: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FF3B30',
+    marginBottom: 6,
+  },
+  airingTodayTitle: {
+    fontSize: 13,
+    opacity: 0.8,
+    marginBottom: 8,
+  },
+  airingTodayBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FF3B30',
+    borderRadius: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    alignSelf: 'flex-start',
+  },
+  airingTodayBadgeText: {
+    fontSize: 10,
+    color: 'white',
+    fontWeight: 'bold',
   },
 });

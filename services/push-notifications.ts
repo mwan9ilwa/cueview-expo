@@ -2,6 +2,7 @@ import { UserShowWithDetails } from '@/types';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { realTimeEpisodeService, UpcomingEpisode } from './real-time-episodes';
 
 export interface PushNotificationPermissions {
   granted: boolean;
@@ -15,6 +16,20 @@ export interface NotificationPreferences {
   recommendations: boolean;
   weeklyDigest: boolean;
   beforeAiring: number; // minutes before airing to send notification
+  smartScheduling: boolean; // Schedule based on user's viewing patterns
+  episodeReminderTime: string; // Time of day to send reminders (HH:MM)
+  seasonReminderTime: string; // Time for season premiere reminders
+}
+
+export interface AdvancedNotificationData extends Record<string, unknown> {
+  type: 'new_episode' | 'new_season' | 'weekly_digest' | 'show_reminder' | 'binge_suggestion';
+  showId: number;
+  showName: string;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeName?: string;
+  airDate?: string;
+  stillPath?: string;
 }
 
 class PushNotificationService {
@@ -171,6 +186,9 @@ class PushNotificationService {
       recommendations: false,
       weeklyDigest: true,
       beforeAiring: 30, // 30 minutes before
+      smartScheduling: false,
+      episodeReminderTime: '18:00',
+      seasonReminderTime: '10:00',
     }
   ): Promise<void> {
     try {
@@ -185,8 +203,11 @@ class PushNotificationService {
 
         // Schedule next episode notification if available
         if (preferences.newEpisodes) {
-          const scheduled = await this.scheduleNextEpisodeNotification(userShow, preferences.beforeAiring);
-          if (scheduled) notificationCount++;
+          const upcomingEpisode = await realTimeEpisodeService.getNextEpisode(userShow.showId);
+          if (upcomingEpisode) {
+            const scheduled = await this.scheduleEpisodeNotification(upcomingEpisode, preferences.beforeAiring);
+            if (scheduled) notificationCount++;
+          }
         }
 
         // Schedule season notifications
@@ -210,32 +231,28 @@ class PushNotificationService {
   }
 
   /**
-   * Schedule notification for next episode
+   * Schedule notification for an episode
    */
-  private async scheduleNextEpisodeNotification(
-    userShow: UserShowWithDetails,
+  private async scheduleEpisodeNotification(
+    episode: UpcomingEpisode,
     minutesBefore: number = 30
   ): Promise<boolean> {
     try {
-      // This is a simplified version - in a real app, you'd need to:
-      // 1. Get the next episode air date from your API or TMDb
-      // 2. Calculate when to send the notification
-      // 3. Handle timezone conversions
+      const { showId, showName, airDate, episodeName } = episode;
 
-      const showName = userShow.showDetails?.name || 'Your Show';
-      
-      // For demo purposes, schedule a notification 24 hours from now
-      const notificationDate = new Date();
-      notificationDate.setHours(notificationDate.getHours() + 24);
+      // Calculate notification time
+      const notificationDate = new Date(airDate);
+      notificationDate.setMinutes(notificationDate.getMinutes() - minutesBefore);
 
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: '📺 New Episode Alert!',
-          body: `${showName} has a new episode airing in ${minutesBefore} minutes`,
+          body: `${showName} - ${episodeName} airs in ${minutesBefore} minutes`,
           data: {
             type: 'new_episode',
-            showId: userShow.showId,
+            showId,
             showName,
+            episodeId: episode.id,
           },
           sound: 'default',
         },
@@ -245,7 +262,7 @@ class PushNotificationService {
         },
       });
 
-      console.log(`📺 Scheduled episode notification for ${showName}:`, notificationId);
+      console.log(`📺 Scheduled episode notification for ${showName} - ${episodeName}:`, notificationId);
       return true;
     } catch (error) {
       console.error('❌ Error scheduling episode notification:', error);
@@ -472,6 +489,189 @@ class PushNotificationService {
     } catch (error) {
       console.error('❌ Error sending test notifications:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Schedule notifications for real upcoming episodes
+   */
+  public async scheduleRealEpisodeNotifications(
+    userId: string, 
+    userShows: UserShowWithDetails[],
+    preferences: NotificationPreferences = {
+      newEpisodes: true,
+      newSeasons: true,
+      recommendations: false,
+      weeklyDigest: true,
+      beforeAiring: 30,
+      smartScheduling: false,
+      episodeReminderTime: '19:00',
+      seasonReminderTime: '20:00',
+    }
+  ): Promise<void> {
+    try {
+      await this.initialize();
+      
+      // Clear existing episode notifications
+      await this.clearEpisodeNotifications();
+      
+      for (const userShow of userShows) {
+        try {
+          // Get next episode for this show
+          const nextEpisode = await realTimeEpisodeService.getNextEpisodeForShow(userShow);
+          
+          if (nextEpisode && preferences.newEpisodes) {
+            await this.scheduleRealEpisodeNotification(nextEpisode, preferences);
+          }
+        } catch (error) {
+          console.warn(`Failed to schedule notifications for show ${userShow.showId}:`, error);
+        }
+      }
+      
+      // Schedule weekly digest
+      if (preferences.weeklyDigest) {
+        await this.scheduleAdvancedWeeklyDigest(userId, userShows);
+      }
+      
+      console.log(`✅ Scheduled real episode notifications for ${userShows.length} shows`);
+    } catch (error) {
+      console.error('❌ Error scheduling real episode notifications:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Schedule notification for a real upcoming episode
+   */
+  private async scheduleRealEpisodeNotification(
+    episode: UpcomingEpisode,
+    preferences: NotificationPreferences
+  ): Promise<boolean> {
+    try {
+      const notificationTime = new Date(episode.airDate.getTime() - (preferences.beforeAiring * 60 * 1000));
+      
+      // Don't schedule notifications for past episodes
+      if (notificationTime <= new Date()) {
+        return false;
+      }
+
+      const title = preferences.smartScheduling 
+        ? `🎬 ${episode.showName} is airing soon!`
+        : `📺 New Episode Alert!`;
+        
+      const body = `${episode.showName} S${episode.seasonNumber}E${episode.episodeNumber}: "${episode.episodeName}" airs in ${preferences.beforeAiring} minutes`;
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: {
+            type: 'new_episode',
+            showId: episode.showId,
+            showName: episode.showName,
+            seasonNumber: episode.seasonNumber,
+            episodeNumber: episode.episodeNumber,
+            episodeName: episode.episodeName,
+            airDate: episode.airDate.toISOString(),
+            stillPath: episode.stillPath,
+          } as AdvancedNotificationData,
+          sound: 'default',
+          categoryIdentifier: 'episode_reminder',
+        },
+        trigger: { 
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: notificationTime 
+        },
+      });
+
+      console.log(`📺 Scheduled real episode notification for ${episode.showName} S${episode.seasonNumber}E${episode.episodeNumber}:`, notificationId);
+      return true;
+    } catch (error) {
+      console.error('❌ Error scheduling real episode notification:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Schedule daily episode check notifications
+   */
+  public async scheduleDailyEpisodeCheck(userId: string): Promise<void> {
+    try {
+      // Schedule a daily notification at 9 AM to check for episodes airing today
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '📅 Episodes Today',
+          body: 'Check what episodes are airing today from your watched shows',
+          data: {
+            type: 'daily_check',
+            userId,
+          },
+          sound: 'default',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          hour: 9,
+          minute: 0,
+          repeats: true,
+        },
+      });
+      
+      console.log('📅 Scheduled daily episode check notification');
+    } catch (error) {
+      console.error('❌ Error scheduling daily episode check:', error);
+    }
+  }
+
+  /**
+   * Clear episode-specific notifications
+   */
+  private async clearEpisodeNotifications(): Promise<void> {
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      
+      for (const notification of scheduledNotifications) {
+        const data = notification.content.data as any;
+        if (data?.type === 'new_episode' || data?.type === 'new_season') {
+          await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+        }
+      }
+    } catch (error) {
+      console.error('Error clearing episode notifications:', error);
+    }
+  }
+
+  /**
+   * Enhanced weekly digest with real data
+   */
+  private async scheduleAdvancedWeeklyDigest(userId: string, userShows: UserShowWithDetails[]): Promise<void> {
+    try {
+      const upcomingEpisodes = await realTimeEpisodeService.getUpcomingEpisodes(userId, 7);
+      const watchingCount = userShows.filter(show => show.status === 'watching').length;
+      
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '📊 Your Weekly Watch Summary',
+          body: `You have ${upcomingEpisodes.length} episodes airing this week across ${watchingCount} shows`,
+          data: {
+            type: 'weekly_digest',
+            watchingCount,
+            upcomingCount: upcomingEpisodes.length,
+            userId,
+          },
+          sound: 'default',
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          weekday: 1, // Sunday
+          hour: 9,
+          minute: 0,
+          repeats: true,
+        },
+      });
+
+      console.log('📊 Scheduled enhanced weekly digest notification:', notificationId);
+    } catch (error) {
+      console.error('❌ Error scheduling enhanced weekly digest:', error);
     }
   }
 }

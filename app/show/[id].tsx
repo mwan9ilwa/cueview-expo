@@ -6,13 +6,17 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
+import { notificationService } from '@/services/notifications';
+import { streamingIntegrationService } from '@/services/streaming-integration';
 import { tmdbService, TMDbShow } from '@/services/tmdb';
 import { ShowStatus } from '@/types';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Alert,
     Image,
+    Linking,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -41,6 +45,25 @@ export default function ShowDetailsScreen() {
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [userShow, setUserShow] = useState<any>(null);
+  const [streamingProviders, setStreamingProviders] = useState<any[]>([]);
+  const [loadingStreaming, setLoadingStreaming] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+
+  const loadStreamingProviders = React.useCallback(async () => {
+    if (!show?.id) return;
+    
+    try {
+      setLoadingStreaming(true);
+      const availability = await streamingIntegrationService.getStreamingAvailability(show.id);
+      if (availability?.flatrate) {
+        setStreamingProviders(availability.flatrate);
+      }
+    } catch (error) {
+      console.error('Error loading streaming providers:', error);
+    } finally {
+      setLoadingStreaming(false);
+    }
+  }, [show?.id]);
 
   const loadShowDetails = React.useCallback(async () => {
     try {
@@ -62,19 +85,67 @@ export default function ShowDetailsScreen() {
         setUserShow(userShowData);
       }
       
+      // Load streaming providers
+      loadStreamingProviders();
+      
     } catch (error) {
       console.error('Error loading show details:', error);
       setError('Failed to load show details');
     } finally {
       setLoading(false);
     }
-  }, [id, user, isShowInLibrary, getUserShowForShow]);
+  }, [id, user, isShowInLibrary, getUserShowForShow, loadStreamingProviders]);
 
   useEffect(() => {
     if (id) {
       loadShowDetails();
     }
   }, [id, loadShowDetails]);
+
+  const handleNotificationToggle = async () => {
+    if (!show || !user) return;
+    
+    try {
+      if (notificationsEnabled) {
+        // For now, clear all notifications since we don't have show-specific cancel
+        await notificationService.clearAllNotifications();
+        setNotificationsEnabled(false);
+        Alert.alert('Notifications Disabled', 'You will no longer receive episode reminders for this show.');
+      } else {
+        const hasPermissions = await notificationService.requestPermissions();
+        if (hasPermissions && userShow) {
+          await notificationService.scheduleNotificationsForWatchingShows([{
+            ...userShow,
+            showDetails: show
+          }]);
+          setNotificationsEnabled(true);
+          Alert.alert('Notifications Enabled', 'You will receive episode reminders for this show.');
+        } else {
+          Alert.alert('Permission Required', 'Please enable notifications in your device settings.');
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling notifications:', error);
+      Alert.alert('Error', 'Failed to update notification settings.');
+    }
+  };
+
+  const handleWatchOnProvider = async (provider: any) => {
+    try {
+      const deepLink = streamingIntegrationService.generateDeepLink(provider, show!.id, show!.name);
+      if (deepLink) {
+        const canOpen = await Linking.canOpenURL(deepLink);
+        if (canOpen) {
+          await Linking.openURL(deepLink);
+        } else {
+          Alert.alert('App Not Found', `Please install the ${provider.provider_name} app to watch this show.`);
+        }
+      }
+    } catch (error) {
+      console.error('Error opening deep link:', error);
+      Alert.alert('Error', 'Failed to open streaming app.');
+    }
+  };
 
   const handleAddToLibrary = async (status: ShowStatus) => {
     if (!user) {
@@ -364,6 +435,67 @@ export default function ShowDetailsScreen() {
           </View>
         )}
       </ThemedView>
+
+      {/* Streaming Providers */}
+      {streamingProviders.length > 0 && (
+        <ThemedView style={styles.section}>
+          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            Where to Watch
+          </ThemedText>
+          {loadingStreaming ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#007AFF" />
+              <ThemedText style={styles.loadingText}>Loading providers...</ThemedText>
+            </View>
+          ) : (
+            <View style={styles.streamingGrid}>
+              {streamingProviders.map((provider, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.streamingProvider}
+                  onPress={() => handleWatchOnProvider(provider)}
+                >
+                  <Image
+                    source={{ uri: `https://image.tmdb.org/t/p/w92${provider.logo_path}` }}
+                    style={styles.providerLogo}
+                    resizeMode="contain"
+                  />
+                  <ThemedText style={styles.providerName} numberOfLines={2}>
+                    {provider.provider_name}
+                  </ThemedText>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </ThemedView>
+      )}
+
+      {/* Notifications */}
+      {isInLibrary && (
+        <ThemedView style={styles.section}>
+          <View style={styles.notificationHeader}>
+            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+              Episode Notifications
+            </ThemedText>
+            <TouchableOpacity
+              style={styles.notificationToggle}
+              onPress={handleNotificationToggle}
+            >
+              <IconSymbol 
+                name={notificationsEnabled ? "bell.fill" : "bell.slash.fill"} 
+                size={16} 
+                color={notificationsEnabled ? "#007AFF" : "#999"} 
+              />
+              <ThemedText style={[styles.toggleText, notificationsEnabled && styles.toggleTextActive]}>
+                {notificationsEnabled ? "Enabled" : "Disabled"}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+          <ThemedText style={styles.notificationDescription}>
+            Get notified when new episodes of this show air
+          </ThemedText>
+        </ThemedView>
+      )}
 
       {/* Overview */}
       <ThemedView style={styles.section}>
@@ -663,5 +795,65 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  loadingText: {
+    opacity: 0.6,
+  },
+  streamingGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  streamingProvider: {
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    borderRadius: 8,
+    minWidth: 80,
+    maxWidth: 100,
+  },
+  providerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginBottom: 6,
+  },
+  providerName: {
+    fontSize: 12,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  notificationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  notificationToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  toggleText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  toggleTextActive: {
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  notificationDescription: {
+    fontSize: 14,
+    opacity: 0.7,
   },
 });

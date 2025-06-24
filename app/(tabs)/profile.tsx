@@ -1,16 +1,17 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { ThemeSelector } from '@/components/ThemeSelector';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { notificationService } from '@/services/notifications';
-import React from 'react';
-import { Alert, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { colors, isDark, setThemeMode } = useTheme();
   const { watchingShowsWithDetails } = useUserLibrary();
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -33,172 +34,131 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleSetupNotifications = async () => {
+  const handleToggleNotifications = async () => {
     try {
-      const hasPermissions = await notificationService.requestPermissions();
-      
-      if (hasPermissions) {
-        // Schedule notifications for all watching shows
-        await notificationService.scheduleNotificationsForWatchingShows(watchingShowsWithDetails);
-        
-        Alert.alert(
-          'Notifications Enabled!',
-          `Set up episode reminders for ${watchingShowsWithDetails.length} shows. You'll get notified 30 minutes before new episodes air.`,
-          [{ text: 'Great!', style: 'default' }]
-        );
+      if (notificationsEnabled) {
+        await notificationService.clearAllNotifications();
+        setNotificationsEnabled(false);
+        Alert.alert('Notifications Disabled', 'All notifications have been turned off.');
       } else {
-        Alert.alert(
-          'Permission Required',
-          'Please enable notifications in your device settings to receive episode reminders.',
-          [{ text: 'OK', style: 'default' }]
-        );
+        const hasPermissions = await notificationService.requestPermissions();
+        if (hasPermissions) {
+          await notificationService.scheduleNotificationsForWatchingShows(watchingShowsWithDetails);
+          setNotificationsEnabled(true);
+          Alert.alert('Notifications Enabled', 'You\'ll receive episode reminders for your shows.');
+        } else {
+          Alert.alert('Permission Required', 'Please enable notifications in your device settings.');
+        }
       }
     } catch (error) {
-      console.error('Error setting up notifications:', error);
-      Alert.alert('Error', 'Failed to set up notifications. Please try again.');
+      console.error('Error toggling notifications:', error);
+      Alert.alert('Error', 'Failed to update notification settings.');
     }
   };
 
-  const handleDisableNotifications = async () => {
-    try {
-      await notificationService.clearAllNotifications();
-      
-      Alert.alert(
-        'Notifications Disabled',
-        'All episode reminder notifications have been cancelled.',
-        [{ text: 'OK', style: 'default' }]
-      );
-    } catch (error) {
-      console.error('Error disabling notifications:', error);
-      Alert.alert('Error', 'Failed to disable notifications. Please try again.');
-    }
-  };
-
-  const handleTestNotification = async () => {
-    try {
-      await notificationService.sendImmediateNotification({
-        title: 'Test Notification',
-        body: 'This is a test notification from CueView!',
-        data: { type: 'test' },
-      });
-      
-      Alert.alert('Test Sent', 'Check your notifications!');
-    } catch (error) {
-      console.error('Error sending test notification:', error);
-      Alert.alert('Error', 'Failed to send test notification.');
-    }
+  const handleToggleTheme = () => {
+    setThemeMode(isDark ? 'light' : 'dark');
   };
 
   if (!user) {
     return (
-      <ScrollView style={styles.container}>
-        <ThemedView style={styles.header}>
-          <ThemedText type="title">Profile</ThemedText>
-        </ThemedView>
-        
-        <ThemedView style={styles.signInPrompt}>
-          <View style={styles.signInIconContainer}>
-            <IconSymbol name="person.fill" size={48} color="#999" />
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.signInContainer}>
+          <View style={[styles.avatarContainer, { backgroundColor: colors.card }]}>
+            <IconSymbol name="person.fill" size={40} color={colors.icon} />
           </View>
-          <ThemedText type="subtitle" style={styles.signInTitle}>
+          <ThemedText type="title" style={styles.signInTitle}>
             Sign In Required
           </ThemedText>
-          <ThemedText style={styles.signInMessage}>
-            Sign in to view your profile, statistics, and manage your account settings.
+          <ThemedText style={styles.signInSubtitle}>
+            Sign in to access your profile and settings
           </ThemedText>
-        </ThemedView>
+        </View>
       </ScrollView>
     );
   }
 
+  const joinDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  }) : 'Today';
+
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <ThemedText type="title">Profile</ThemedText>
-        <ThemedText style={styles.welcomeText}>Welcome back, {user.username}!</ThemedText>
-      </ThemedView>
-      
-      <ThemedView style={styles.content}>
-        {/* Account Information */}
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Account Information</ThemedText>
-          <View style={styles.accountInfo}>
-            <View style={styles.accountDetailItem}>
-              <IconSymbol name="envelope.fill" size={16} color="#5856D6" />
-              <ThemedText style={styles.accountDetailText}>{user.email}</ThemedText>
+    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Profile Header */}
+      <View style={styles.header}>
+        <View style={[styles.avatarContainer, { backgroundColor: colors.card }]}>
+          <IconSymbol name="person.fill" size={40} color={colors.tint} />
+        </View>
+        <ThemedText type="title" style={styles.name}>
+          {user.username}
+        </ThemedText>
+        <ThemedText style={styles.email}>
+          {user.email}
+        </ThemedText>
+        <ThemedText style={styles.joinDate}>
+          Member since {joinDate}
+        </ThemedText>
+      </View>
+
+      {/* Settings Sections */}
+      <View style={styles.content}>
+        {/* Appearance */}
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <TouchableOpacity style={styles.settingRow} onPress={handleToggleTheme}>
+            <View style={styles.settingLeft}>
+              <View style={[styles.iconContainer, { backgroundColor: '#007AFF' }]}>
+                <IconSymbol name={isDark ? "moon.fill" : "sun.max.fill"} size={18} color="white" />
+              </View>
+              <View>
+                <ThemedText style={styles.settingTitle}>Appearance</ThemedText>
+                <ThemedText style={styles.settingSubtitle}>
+                  {isDark ? 'Dark' : 'Light'} mode
+                </ThemedText>
+              </View>
             </View>
-            <View style={styles.accountDetailItem}>
-              <IconSymbol name="person.fill" size={16} color="#5856D6" />
-              <ThemedText style={styles.accountDetailText}>{user.username}</ThemedText>
+            <IconSymbol name="chevron.right" size={16} color={colors.icon} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Notifications */}
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingLeft}>
+              <View style={[styles.iconContainer, { backgroundColor: '#FF3B30' }]}>
+                <IconSymbol name="bell.fill" size={18} color="white" />
+              </View>
+              <View>
+                <ThemedText style={styles.settingTitle}>Notifications</ThemedText>
+                <ThemedText style={styles.settingSubtitle}>
+                  Episode reminders
+                </ThemedText>
+              </View>
             </View>
-            <View style={styles.accountDetailItem}>
-              <IconSymbol name="calendar" size={16} color="#5856D6" />
-              <ThemedText style={styles.accountDetailText}>
-                Member since {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'today'}
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleToggleNotifications}
+              trackColor={{ false: colors.border, true: '#34C759' }}
+              thumbColor="white"
+            />
+          </View>
+        </View>
+
+        {/* Sign Out */}
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <TouchableOpacity style={styles.settingRow} onPress={handleSignOut}>
+            <View style={styles.settingLeft}>
+              <View style={[styles.iconContainer, { backgroundColor: '#FF3B30' }]}>
+                <IconSymbol name="rectangle.portrait.and.arrow.right" size={18} color="white" />
+              </View>
+              <ThemedText style={[styles.settingTitle, { color: '#FF3B30' }]}>
+                Sign Out
               </ThemedText>
             </View>
-          </View>
-        </ThemedView>
-
-        {/* Notifications Management */}
-        <ThemedView style={styles.section}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>Notifications</ThemedText>
-          
-          <View style={styles.notificationControls}>
-            <ThemedText style={styles.notificationDescription}>
-              Get reminded 30 minutes before your shows air. Perfect for never missing an episode!
-            </ThemedText>
-            
-            <View style={styles.notificationButtons}>
-              <TouchableOpacity
-                style={[styles.notificationButton, styles.enableButton]}
-                onPress={handleSetupNotifications}
-              >
-                <ThemedText style={styles.enableButtonText}>
-                  🔔 Enable Episode Reminders
-                </ThemedText>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.notificationButton, styles.disableButton]}
-                onPress={handleDisableNotifications}
-              >
-                <ThemedText style={styles.disableButtonText}>
-                  🔕 Disable All Notifications
-                </ThemedText>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.notificationButton, styles.testButton]}
-                onPress={handleTestNotification}
-              >
-                <View style={styles.testButtonContent}>
-                  <IconSymbol name="flask.fill" size={16} color="#5856D6" />
-                  <ThemedText style={styles.testButtonText}>
-                    Send Test Notification
-                  </ThemedText>
-                </View>
-              </TouchableOpacity>
-            </View>
-            
-            <View style={styles.notificationNote}>
-              <IconSymbol name="bell.fill" size={16} color="#5856D6" />
-              <ThemedText style={styles.notificationNoteText}>
-                Notifications for {watchingShowsWithDetails.length} shows in your watching list
-              </ThemedText>
-            </View>
-          </View>
-        </ThemedView>
-
-        {/* Settings */}
-        <ThemedView style={styles.section}>
-          <ThemeSelector />
-        </ThemedView>
-
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <ThemedText style={styles.signOutText}>Sign Out</ThemedText>
-        </TouchableOpacity>
-      </ThemedView>
+          </TouchableOpacity>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -207,237 +167,86 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    gap: 4,
+  signInContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 100,
   },
-  welcomeText: {
+  signInTitle: {
+    marginTop: 24,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  signInSubtitle: {
+    textAlign: 'center',
+    opacity: 0.7,
+    fontSize: 16,
+  },
+  header: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 32,
+    paddingHorizontal: 20,
+  },
+  avatarContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  name: {
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  email: {
     fontSize: 16,
     opacity: 0.7,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  joinDate: {
+    fontSize: 14,
+    opacity: 0.5,
+    textAlign: 'center',
   },
   content: {
-    flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
     gap: 16,
   },
   section: {
-    gap: 12,
-    marginTop: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: 8,
-  },
-  accountInfo: {
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    padding: 16,
     borderRadius: 12,
+    overflow: 'hidden',
   },
-  accountDetail: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  accountDetailItem: {
+  settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    paddingVertical: 16,
+    paddingHorizontal: 16,
   },
-  accountDetailText: {
-    fontSize: 16,
-    lineHeight: 24,
-  },
-  statsGrid: {
+  settingLeft: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
   },
-  statCard: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    padding: 16,
-    borderRadius: 12,
-    flex: 1,
-    minWidth: 100,
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  statValue: {
-    fontSize: 24,
-    marginBottom: 4,
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
   },
-  statTitle: {
+  settingSubtitle: {
     fontSize: 14,
-    textAlign: 'center',
-    opacity: 0.8,
-  },
-  statSubtitle: {
-    fontSize: 12,
-    textAlign: 'center',
     opacity: 0.6,
     marginTop: 2,
-  },
-  libraryBreakdown: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  breakdownTitle: {
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  breakdownStats: {
-    gap: 8,
-  },
-  breakdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  breakdownDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  breakdownText: {
-    fontSize: 16,
-  },
-  genrePreferences: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    padding: 16,
-    borderRadius: 12,
-  },
-  genreTitle: {
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  genreList: {
-    gap: 8,
-  },
-  genreItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  genreRank: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    width: 24,
-    textAlign: 'center',
-    color: '#007AFF',
-  },
-  genreName: {
-    fontSize: 16,
-  },
-  settingsPreview: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    padding: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  comingSoonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  featureItem: {
-    fontSize: 14,
-    marginLeft: 8,
-    opacity: 0.8,
-  },
-  signInPrompt: {
-    padding: 32,
-    alignItems: 'center',
-    gap: 12,
-  },
-  signInIcon: {
-    fontSize: 48,
-  },
-  signInIconContainer: {
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  signInTitle: {
-    textAlign: 'center',
-  },
-  signInMessage: {
-    textAlign: 'center',
-    opacity: 0.7,
-    lineHeight: 20,
-  },
-  notificationControls: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    padding: 16,
-    borderRadius: 12,
-    gap: 16,
-  },
-  notificationDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    opacity: 0.8,
-  },
-  notificationButtons: {
-    gap: 12,
-  },
-  notificationButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  enableButton: {
-    backgroundColor: '#34C759',
-  },
-  disableButton: {
-    backgroundColor: '#FF9500',
-  },
-  testButton: {
-    backgroundColor: '#007AFF',
-  },
-  enableButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  disableButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  testButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  testButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  notificationNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  notificationNoteText: {
-    fontSize: 12,
-    opacity: 0.6,
-    textAlign: 'center',
-  },
-  signOutButton: {
-    backgroundColor: '#FF3B30',
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  signOutText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });

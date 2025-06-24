@@ -51,6 +51,7 @@ export default function SeasonEpisodeModal({
   const [expandedSeason, setExpandedSeason] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<string>>(new Set());
+  const [batchOperationLoading, setBatchOperationLoading] = useState(false);
 
   const initializeWatchedEpisodes = useCallback(() => {
     const watched = new Set<string>();
@@ -229,12 +230,102 @@ export default function SeasonEpisodeModal({
     );
   };
 
+  // Batch operations
+  const handleMarkSeasonWatched = async (season: Season) => {
+    if (!userId) {
+      Alert.alert('Error', 'Please sign in to update progress');
+      return;
+    }
+
+    Alert.alert(
+      'Mark Season Watched',
+      `Mark all episodes in ${season.name} as watched?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark Watched',
+          onPress: async () => {
+            setBatchOperationLoading(true);
+            try {
+              const episodes = season.episodes || [];
+              await userLibraryService.markSeasonWatched(
+                userId,
+                userShow.showId,
+                season.season_number,
+                episodes
+              );
+              
+              // Update progress to last episode of the season
+              if (episodes.length > 0) {
+                const lastEpisode = episodes[episodes.length - 1];
+                onUpdateProgress(userShow.showId, season.season_number, lastEpisode.episode_number);
+              }
+              
+              Alert.alert('Success', `${season.name} marked as watched!`);
+            } catch (error) {
+              console.error('Error marking season watched:', error);
+              Alert.alert('Error', 'Failed to update season progress');
+            } finally {
+              setBatchOperationLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleMarkSeasonUnwatched = async (season: Season) => {
+    if (!userId) {
+      Alert.alert('Error', 'Please sign in to update progress');
+      return;
+    }
+
+    Alert.alert(
+      'Mark Season Unwatched',
+      `Mark all episodes in ${season.name} as unwatched?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark Unwatched',
+          onPress: async () => {
+            setBatchOperationLoading(true);
+            try {
+              const episodes = season.episodes || [];
+              await userLibraryService.markSeasonUnwatched(
+                userId,
+                userShow.showId,
+                season.season_number,
+                episodes
+              );
+              
+              Alert.alert('Success', `${season.name} marked as unwatched!`);
+            } catch (error) {
+              console.error('Error marking season unwatched:', error);
+              Alert.alert('Error', 'Failed to update season progress');
+            } finally {
+              setBatchOperationLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const getSeasonProgress = (season: Season) => {
-    if (!season.episodes) return 0;
-    const watchedCount = season.episodes.filter(ep => 
-      watchedEpisodes.has(`${season.season_number}-${ep.episode_number}`)
+    const episodes = season.episodes || [];
+    if (episodes.length === 0) return { watched: 0, total: 0, percentage: 0 };
+    
+    const watchedCount = episodes.filter(episode => 
+      userShow.watchedEpisodes.some(
+        we => we.seasonNumber === season.season_number && we.episodeNumber === episode.episode_number
+      )
     ).length;
-    return (watchedCount / season.episodes.length) * 100;
+    
+    return {
+      watched: watchedCount,
+      total: episodes.length,
+      percentage: Math.round((watchedCount / episodes.length) * 100)
+    };
   };
 
   const toggleSeasonWatched = async (season: Season) => {
@@ -294,6 +385,38 @@ export default function SeasonEpisodeModal({
     }
   };
 
+  const batchToggleWatched = async (watch: boolean) => {
+    setBatchOperationLoading(true);
+    try {
+      for (const season of seasons) {
+        if (season.episodes) {
+          for (const episode of season.episodes) {
+            const key = `${season.season_number}-${episode.episode_number}`;
+            const isWatched = watchedEpisodes.has(key);
+            
+            if (watch && !isWatched) {
+              // Mark episode as watched
+              await userLibraryService.markEpisodeWatched(userId!, userShow.showId, season.season_number, episode.episode_number);
+              watchedEpisodes.add(key);
+            } else if (!watch && isWatched) {
+              // Mark episode as unwatched
+              await userLibraryService.markEpisodeUnwatched(userId!, userShow.showId, season.season_number, episode.episode_number);
+              watchedEpisodes.delete(key);
+            }
+          }
+        }
+      }
+      
+      setWatchedEpisodes(new Set(watchedEpisodes));
+      Alert.alert('Success', `All episodes marked as ${watch ? 'watched' : 'unwatched'}.`);
+    } catch (error) {
+      console.error('Batch operation failed:', error);
+      Alert.alert('Error', 'Failed to update episode status. Please try again.');
+    } finally {
+      setBatchOperationLoading(false);
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
       <ThemedView style={styles.container}>
@@ -333,9 +456,11 @@ export default function SeasonEpisodeModal({
                     </ThemedText>
                     {season.episodes && (
                       <View style={styles.progressContainer}>
-                        <View style={[styles.progressBar, { width: `${getSeasonProgress(season)}%` }]} />
+                        <View style={styles.progressBarBackground}>
+                          <View style={[styles.progressBar, { width: `${getSeasonProgress(season).percentage}%` }]} />
+                        </View>
                         <ThemedText style={styles.progressText}>
-                          {season.episodes.filter(ep => watchedEpisodes.has(`${season.season_number}-${ep.episode_number}`)).length}/{season.episodes.length} watched
+                          {getSeasonProgress(season).watched}/{getSeasonProgress(season).total} watched ({getSeasonProgress(season).percentage}%)
                         </ThemedText>
                       </View>
                     )}
@@ -343,14 +468,23 @@ export default function SeasonEpisodeModal({
                   
                   <View style={styles.seasonActions}>
                     {season.episodes && (
-                      <TouchableOpacity
-                        style={[styles.watchButton, isSeasonWatched(season) && styles.watchedButton]}
-                        onPress={async () => await toggleSeasonWatched(season)}
-                      >
-                        <ThemedText style={[styles.watchButtonText, isSeasonWatched(season) && styles.watchedButtonText]}>
-                          {isSeasonWatched(season) ? '✓' : '○'}
-                        </ThemedText>
-                      </TouchableOpacity>
+                      <>
+                        <TouchableOpacity
+                          style={[styles.batchButton, styles.markWatchedButton]}
+                          onPress={() => handleMarkSeasonWatched(season)}
+                          disabled={batchOperationLoading}
+                        >
+                          <IconSymbol name="checkmark.circle.fill" size={16} color="white" />
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                          style={[styles.batchButton, styles.markUnwatchedButton]}
+                          onPress={() => handleMarkSeasonUnwatched(season)}
+                          disabled={batchOperationLoading}
+                        >
+                          <IconSymbol name="xmark.circle.fill" size={16} color="white" />
+                        </TouchableOpacity>
+                      </>
                     )}
                     <IconSymbol 
                       name="chevron.right" 
@@ -394,6 +528,27 @@ export default function SeasonEpisodeModal({
               </View>
             ))
           )}
+
+          <View style={styles.batchActionsContainer}>
+            <TouchableOpacity
+              style={[styles.batchActionButton, batchOperationLoading && styles.buttonLoading]}
+              onPress={async () => await batchToggleWatched(true)}
+              disabled={batchOperationLoading}
+            >
+              <ThemedText style={styles.batchActionText}>
+                {batchOperationLoading ? 'Processing...' : 'Mark All as Watched'}
+              </ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.batchActionButton, batchOperationLoading && styles.buttonLoading]}
+              onPress={async () => await batchToggleWatched(false)}
+              disabled={batchOperationLoading}
+            >
+              <ThemedText style={styles.batchActionText}>
+                {batchOperationLoading ? 'Processing...' : 'Mark All as Unwatched'}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </ThemedView>
     </Modal>
@@ -565,5 +720,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     opacity: 0.7,
+  },
+  batchActionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  batchActionButton: {
+    flex: 1,
+    marginHorizontal: 8,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonLoading: {
+    backgroundColor: 'rgba(52,199,89,0.7)',
+  },
+  batchActionText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '500',
   },
 });
