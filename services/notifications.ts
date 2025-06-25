@@ -191,6 +191,7 @@ class NotificationService {
    */
   async scheduleNotificationsForWatchingShows(watchingShows: any[]): Promise<void> {
     console.log('Scheduling notifications for', watchingShows.length, 'shows');
+    console.log('First show structure:', JSON.stringify(watchingShows[0], null, 2));
     
     for (const userShow of watchingShows) {
       // In a real app, you would fetch upcoming episode data from TMDb API
@@ -214,6 +215,11 @@ class NotificationService {
    * In production, this would be replaced with real TMDb API data
    */
   private generateMockUpcomingEpisodes(userShow: any) {
+    // Debug logging to understand the userShow structure
+    console.log('generateMockUpcomingEpisodes userShow:', JSON.stringify(userShow, null, 2));
+    console.log('userShow.showId type:', typeof userShow.showId, 'value:', userShow.showId);
+    console.log('userShow.id type:', typeof userShow.id, 'value:', userShow.id);
+    
     const episodes = [];
     const today = new Date();
     
@@ -222,7 +228,7 @@ class NotificationService {
       airDate.setDate(today.getDate() + (i * 7)); // Weekly episodes
       
       episodes.push({
-        showId: parseInt(userShow.id, 10),
+        showId: userShow.showId, // Use showId directly (it's already a number)
         showName: userShow.showDetails?.name || 'Unknown Show',
         season: 1,
         episode: i,

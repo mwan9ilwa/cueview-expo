@@ -45,7 +45,7 @@ export default function SignInScreen() {
     <ScrollView style={styles.container}>
       <ThemedView style={styles.content}>
         <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Welcome Back</ThemedText>
+          <ThemedText type="title" style={styles.title}>Cue View</ThemedText>
           <ThemedText style={styles.subtitle}>Sign in to your CueView account</ThemedText>
         </ThemedView>
 
