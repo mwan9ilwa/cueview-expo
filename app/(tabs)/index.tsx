@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { AndroidShowCard } from '@/components/AndroidShowCard';
 import LoadingScreen from '@/components/LoadingScreen';
 import ShowCard from '@/components/ShowCard';
 import { ThemedText } from '@/components/ThemedText';
@@ -24,7 +25,6 @@ export default function HomeScreen() {
   
   const {
     episodesAiringToday,
-    upcomingEpisodes,
     loading: realTimeLoading,
   } = useRealTimeEpisodes();
 
@@ -196,14 +196,17 @@ export default function HomeScreen() {
             </ThemedText>
             <FlatList
               data={section.data}
-              renderItem={({ item }) => (
-                <ShowCard 
-                  show={item} 
-                  onPress={handleShowPress}
-                  showProgress={section.showProgress}
-                  progress={section.showProgress ? Math.random() * 100 : 0} // TODO: Get real progress
-                />
-              )}
+              renderItem={({ item }) => {
+                const ShowComponent = Platform.OS === 'android' ? AndroidShowCard : ShowCard;
+                return (
+                  <ShowComponent 
+                    show={item} 
+                    onPress={handleShowPress}
+                    showProgress={section.showProgress}
+                    progress={section.showProgress ? Math.random() * 100 : 0} // TODO: Get real progress
+                  />
+                );
+              }}
               keyExtractor={(item) => `${section.title}-${item.id}`}
               horizontal
               showsHorizontalScrollIndicator={false}

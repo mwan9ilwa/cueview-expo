@@ -223,13 +223,6 @@ export default function SeasonEpisodeModal({
     }
   };
 
-  const isSeasonWatched = (season: Season) => {
-    if (!season.episodes) return false;
-    return season.episodes.every(ep => 
-      watchedEpisodes.has(`${season.season_number}-${ep.episode_number}`)
-    );
-  };
-
   // Batch operations
   const handleMarkSeasonWatched = async (season: Season) => {
     if (!userId) {
@@ -326,63 +319,6 @@ export default function SeasonEpisodeModal({
       total: episodes.length,
       percentage: Math.round((watchedCount / episodes.length) * 100)
     };
-  };
-
-  const toggleSeasonWatched = async (season: Season) => {
-    if (!season.episodes) return;
-    
-    const newWatched = new Set(watchedEpisodes);
-    const isWatched = isSeasonWatched(season);
-    
-    // Update local state first
-    season.episodes.forEach(ep => {
-      const key = `${season.season_number}-${ep.episode_number}`;
-      if (isWatched) {
-        newWatched.delete(key);
-      } else {
-        newWatched.add(key);
-      }
-    });
-    
-    setWatchedEpisodes(newWatched);
-    
-    if (!isWatched && season.episodes.length > 0) {
-      const lastEpisode = season.episodes[season.episodes.length - 1];
-      onUpdateProgress(userShow.showId, season.season_number, lastEpisode.episode_number);
-    }
-    
-    // Save to Firestore if userId is available
-    if (userId) {
-      try {
-        if (isWatched) {
-          // Mark entire season as unwatched
-          await userLibraryService.markSeasonUnwatched(userId, userShow.showId, season.season_number, season.episodes);
-        } else {
-          // Mark entire season as watched
-          await userLibraryService.markSeasonWatched(userId, userShow.showId, season.season_number, season.episodes);
-        }
-        
-        // Notify parent of progress update after successful save
-        if (!isWatched && season.episodes.length > 0) {
-          const lastEpisode = season.episodes[season.episodes.length - 1];
-          onUpdateProgress(userShow.showId, season.season_number, lastEpisode.episode_number);
-        }
-      } catch (error) {
-        console.error('Failed to save season watch status:', error);
-        // Revert UI state on error
-        const revertedWatched = new Set(watchedEpisodes);
-        season.episodes.forEach(ep => {
-          const key = `${season.season_number}-${ep.episode_number}`;
-          if (isWatched) {
-            revertedWatched.add(key);
-          } else {
-            revertedWatched.delete(key);
-          }
-        });
-        setWatchedEpisodes(revertedWatched);
-        Alert.alert('Error', 'Failed to save season progress. Please try again.');
-      }
-    }
   };
 
   const batchToggleWatched = async (watch: boolean) => {
@@ -742,5 +678,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'white',
     fontWeight: '500',
+  },
+  progressBarBackground: {
+    height: 4,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 2,
+    marginTop: 4,
+  },
+  batchButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 4,
+  },
+  markWatchedButton: {
+    backgroundColor: '#34C759',
+  },
+  markUnwatchedButton: {
+    backgroundColor: '#FF3B30',
   },
 });

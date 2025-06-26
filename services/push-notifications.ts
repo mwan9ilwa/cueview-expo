@@ -203,7 +203,7 @@ class PushNotificationService {
 
         // Schedule next episode notification if available
         if (preferences.newEpisodes) {
-          const upcomingEpisode = await realTimeEpisodeService.getNextEpisode(userShow.showId);
+          const upcomingEpisode = await realTimeEpisodeService.getNextEpisodeForShow(userShow);
           if (upcomingEpisode) {
             const scheduled = await this.scheduleEpisodeNotification(upcomingEpisode, preferences.beforeAiring);
             if (scheduled) notificationCount++;
@@ -252,7 +252,7 @@ class PushNotificationService {
             type: 'new_episode',
             showId,
             showName,
-            episodeId: episode.id,
+            episodeId: `${episode.showId}-S${episode.seasonNumber}E${episode.episodeNumber}`,
           },
           sound: 'default',
         },

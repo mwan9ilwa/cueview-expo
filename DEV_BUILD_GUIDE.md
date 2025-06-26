@@ -1,5 +1,21 @@
 # Development Build Setup for CueView
 
+## Recent Fixes Applied ✅
+
+### Fixed Issues (June 2025):
+- ✅ **React Native Paper Module Resolution**: Fixed missing dependency installation
+- ✅ **ShowId NaN Bug**: Added proper type handling for Firestore string/number conversion  
+- ✅ **Notification Validation**: Added defensive checks for invalid showId values
+- ✅ **Development Build Workflow**: Streamlined build and testing process
+
+### Current Status:
+- All major notification-related bugs have been resolved
+- Development build includes proper push notification support
+- Firestore data type handling is now robust
+- React Native Paper theming integration working
+
+---
+
 ## Overview
 Since SDK 53, expo-notifications remote push notifications are no longer supported in Expo Go. You need to use a development build to test push notifications.
 

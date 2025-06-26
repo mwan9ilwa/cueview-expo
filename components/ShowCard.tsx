@@ -36,7 +36,6 @@ export default function ShowCard({
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [nextAirDate, setNextAirDate] = useState<{ date: string; episodeInfo: string } | null>(null);
   const [streamingProviders, setStreamingProviders] = useState<any[]>([]);
-  const [loadingStreaming, setLoadingStreaming] = useState(false);
   const [isAiringToday, setIsAiringToday] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const maxRetries = 2;
@@ -182,7 +181,6 @@ export default function ShowCard({
     if (!displayShow?.id) return;
     
     try {
-      setLoadingStreaming(true);
       const availability = await streamingIntegrationService.getStreamingAvailability(displayShow.id);
       if (availability?.flatrate) {
         setStreamingProviders(availability.flatrate);
@@ -197,8 +195,6 @@ export default function ShowCard({
           loadStreamingProviders();
         }, 1000 * (retryCount + 1)); // Progressive delay
       }
-    } finally {
-      setLoadingStreaming(false);
     }
   }, [displayShow?.id, retryCount, maxRetries]);
 

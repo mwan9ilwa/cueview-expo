@@ -1,3 +1,4 @@
+import { AndroidShowCard } from '@/components/AndroidShowCard';
 import ShowCard from '@/components/ShowCard';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
@@ -9,6 +10,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     FlatList,
+    Platform,
     StyleSheet,
     TextInput,
     TouchableOpacity,
@@ -173,11 +175,14 @@ export default function DiscoverScreen() {
         </View>
         {rows.map((row, rowIndex) => (
           <View key={rowIndex} style={styles.searchGrid}>
-            {row.map((show) => (
-              <View key={show.id} style={styles.searchGridItem}>
-                <ShowCard show={show} onPress={handleShowPress} />
-              </View>
-            ))}
+            {row.map((show) => {
+              const ShowComponent = Platform.OS === 'android' ? AndroidShowCard : ShowCard;
+              return (
+                <View key={show.id} style={styles.searchGridItem}>
+                  <ShowComponent show={show} onPress={handleShowPress} />
+                </View>
+              );
+            })}
           </View>
         ))}
       </View>
