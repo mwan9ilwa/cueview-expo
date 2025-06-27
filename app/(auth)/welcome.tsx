@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import { router } from 'expo-router';
 import React from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { Alert, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 
 export default function WelcomeScreen() {
   return (
@@ -44,24 +44,23 @@ export default function WelcomeScreen() {
         <ThemedView style={styles.buttons}>
           <TouchableOpacity 
             style={[styles.button, styles.primaryButton]}
-            onPress={() => router.push('/(auth)/sign-up')}
+            onPress={() => {
+              router.push('/(auth)/sign-in');
+            }}
+            activeOpacity={0.7}
           >
             <ThemedText style={styles.primaryButtonText}>Get Started</ThemedText>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton]}
-            onPress={() => router.push('/(auth)/sign-in')}
-          >
-            <ThemedText style={styles.secondaryButtonText}>Sign In</ThemedText>
           </TouchableOpacity>
         </ThemedView>
 
         <TouchableOpacity 
           style={styles.skipButton}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => {
+            router.replace('/(tabs)');
+          }}
+          activeOpacity={0.7}
         >
-          <ThemedText style={styles.skipText}>Continue without account</ThemedText>
+          <ThemedText style={styles.skipText}>Continue as Guest</ThemedText>
         </TouchableOpacity>
       </ThemedView>
     </ScrollView>

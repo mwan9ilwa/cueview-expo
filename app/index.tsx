@@ -19,12 +19,7 @@ export default function IndexScreen() {
     return <LoadingScreen />;
   }
 
-  // Redirect based on authentication state
-  if (isAuthenticated && user) {
-    console.log('🔓 User authenticated, redirecting to tabs home:', user.email);
-    return <Redirect href="/(tabs)" />;
-  } else {
-    console.log('� User not authenticated, redirecting to discover (guest mode)');
-    return <Redirect href="/(tabs)/discover" />;
-  }
+  // Always redirect to welcome screen first
+  console.log('🎉 Redirecting to welcome screen');
+  return <Redirect href="/(auth)/welcome" />;
 }
