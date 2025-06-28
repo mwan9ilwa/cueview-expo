@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, RefreshControl, View } from 'react-native';
 
 import { AndroidShowCard } from '@/components/AndroidShowCard';
 import LoadingScreen from '@/components/LoadingScreen';
@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useHomeScreenData } from '@/hooks/useHomeScreenData';
 import { useRealTimeEpisodes } from '@/hooks/useRealTimeEpisodes';
 import { TMDbShow } from '@/services/tmdb';
+import { GlobalStyles } from '@/styles/GlobalStyles';
+
 export default function HomeScreen() {
   const { user, isLoading: authLoading } = useAuth();
   const {
@@ -105,41 +107,41 @@ export default function HomeScreen() {
       case 'airing_today':
         if (section.loading) {
           return (
-            <View style={styles.horizontalSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            <View style={GlobalStyles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
                 {section.title}
               </ThemedText>
-              <View style={styles.loadingContainer}>
+              <View style={GlobalStyles.loadingContainer}>
                 <IconSymbol name="tv.fill" size={16} color="#FF3B30" />
-                <ThemedText style={styles.loadingText}>Loading episodes...</ThemedText>
+                <ThemedText style={GlobalStyles.loadingText}>Loading episodes...</ThemedText>
               </View>
             </View>
           );
         }
 
         return (
-          <View style={styles.horizontalSection}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+          <View style={GlobalStyles.horizontalSection}>
+            <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
               {section.title}
             </ThemedText>
             <FlatList
               data={section.data}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
+              contentContainerStyle={GlobalStyles.horizontalList}
               keyExtractor={(item) => `${item.showId}-${item.seasonNumber}-${item.episodeNumber}`}
               renderItem={({ item }) => (
-                <View style={styles.airingTodayCard}>
-                  <ThemedText style={styles.airingTodayShow}>{item.showName}</ThemedText>
-                  <ThemedText style={styles.airingTodayEpisode}>
+                <View style={GlobalStyles.airingTodayCard}>
+                  <ThemedText style={GlobalStyles.airingTodayShow}>{item.showName}</ThemedText>
+                  <ThemedText style={GlobalStyles.airingTodayEpisode}>
                     S{item.seasonNumber}E{item.episodeNumber}
                   </ThemedText>
-                  <ThemedText style={styles.airingTodayTitle} numberOfLines={2}>
+                  <ThemedText style={GlobalStyles.airingTodayTitle} numberOfLines={2}>
                     {item.episodeName}
                   </ThemedText>
-                  <View style={styles.airingTodayBadge}>
+                  <View style={GlobalStyles.airingTodayBadge}>
                     <IconSymbol name="tv.fill" size={12} color="white" />
-                    <ThemedText style={styles.airingTodayBadgeText}>LIVE</ThemedText>
+                    <ThemedText style={GlobalStyles.airingTodayBadgeText}>LIVE</ThemedText>
                   </View>
                 </View>
               )}
@@ -149,13 +151,13 @@ export default function HomeScreen() {
       case 'horizontal_list':
         if (section.loading) {
           return (
-            <View style={styles.horizontalSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            <View style={GlobalStyles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
                 {section.title}
               </ThemedText>
-              <View style={styles.loadingContainer}>
+              <View style={GlobalStyles.loadingContainer}>
                 <IconSymbol name="clock.fill" size={16} color="#999" />
-                <ThemedText style={styles.loadingText}>Loading shows...</ThemedText>
+                <ThemedText style={GlobalStyles.loadingText}>Loading shows...</ThemedText>
               </View>
             </View>
           );
@@ -163,13 +165,13 @@ export default function HomeScreen() {
 
         if (section.error) {
           return (
-            <View style={styles.horizontalSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            <View style={GlobalStyles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
                 {section.title}
               </ThemedText>
-              <View style={styles.errorContainer}>
+              <View style={GlobalStyles.errorContainer}>
                 <IconSymbol name="exclamationmark.triangle.fill" size={16} color="#FF3B30" />
-                <ThemedText style={styles.errorText}>{section.error}</ThemedText>
+                <ThemedText style={GlobalStyles.errorText}>{section.error}</ThemedText>
               </View>
             </View>
           );
@@ -177,21 +179,21 @@ export default function HomeScreen() {
 
         if (section.data.length === 0) {
           return (
-            <View style={styles.horizontalSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            <View style={GlobalStyles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
                 {section.title}
               </ThemedText>
-              <View style={styles.emptyContainer}>
+              <View style={GlobalStyles.emptyContainer}>
                 <IconSymbol name="tv.fill" size={16} color="#999" />
-                <ThemedText style={styles.emptyText}>No shows available</ThemedText>
+                <ThemedText style={GlobalStyles.emptyText}>No shows available</ThemedText>
               </View>
             </View>
           );
         }
 
         return (
-          <View style={styles.horizontalSection}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+          <View style={GlobalStyles.horizontalSection}>
+            <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
               {section.title}
             </ThemedText>
             <FlatList
@@ -210,7 +212,7 @@ export default function HomeScreen() {
               keyExtractor={(item) => `${section.title}-${item.id}`}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
+              contentContainerStyle={GlobalStyles.horizontalList}
             />
           </View>
         );
@@ -221,13 +223,13 @@ export default function HomeScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.titleSection}>
+    <ThemedView style={GlobalStyles.container}>
+      <ThemedView style={GlobalStyles.header}>
+        <View style={GlobalStyles.headerContent}>
+          <View style={GlobalStyles.titleSection}>
             <ThemedText type="title">CueView</ThemedText>
             {user && (
-              <ThemedText style={styles.subtitle}>Hello, {user.username}!</ThemedText>
+              <ThemedText style={GlobalStyles.subtitle}>Hello, {user.username}!</ThemedText>
             )}
           </View>
         </View>
@@ -238,9 +240,9 @@ export default function HomeScreen() {
         data={createSections()}
         renderItem={renderSectionItem}
         keyExtractor={(item, index) => `${item.type}-${index}`}
-        style={styles.content}
+        style={GlobalStyles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.flatListContent}
+        contentContainerStyle={GlobalStyles.flatListContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -248,125 +250,3 @@ export default function HomeScreen() {
     </ThemedView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  titleSection: {
-    flex: 1,
-    gap: 4,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  content: {
-    flex: 1,
-  },
-  flatListContent: {
-    paddingBottom: 20,
-  },
-  horizontalSection: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    marginBottom: 12,
-    marginHorizontal: 16,
-  },
-  horizontalList: {
-    paddingHorizontal: 16,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    gap: 8,
-  },
-  loadingText: {
-    opacity: 0.6,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    gap: 8,
-  },
-  errorText: {
-    opacity: 0.6,
-    color: '#FF3B30',
-  },
-  emptyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    gap: 8,
-  },
-  emptyText: {
-    opacity: 0.6,
-  },
-  statsSection: {
-    padding: 16,
-    margin: 16,
-    backgroundColor: 'rgba(233, 76, 76, 0.05)',
-    borderRadius: 8,
-    gap: 8,
-  },
-  bottomPadding: {
-    height: 20,
-  },
-  airingTodayCard: {
-    width: 200,
-    marginRight: 12,
-    padding: 12,
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#FF3B30',
-  },
-  airingTodayShow: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  airingTodayEpisode: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FF3B30',
-    marginBottom: 6,
-  },
-  airingTodayTitle: {
-    fontSize: 13,
-    opacity: 0.8,
-    marginBottom: 8,
-  },
-  airingTodayBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FF3B30',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    alignSelf: 'flex-start',
-  },
-  airingTodayBadgeText: {
-    fontSize: 10,
-    color: 'white',
-    fontWeight: 'bold',
-  },
-});

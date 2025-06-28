@@ -1165,6 +1165,11 @@
   resolved "https://registry.yarnpkg.com/@expo/sudo-prompt/-/sudo-prompt-9.3.2.tgz#0fd2813402a42988e49145cab220e25bea74b308"
   integrity sha512-HHQigo3rQWKMDzYDLkubN5WQOYXJJE2eNqIQC2axC2iO3mHdwnIR7FgZVvHWtBwAdzBgAP0ECp8KqS8TiMKvgw==
 
+"@expo/ui@~0.1.1-alpha.9":
+  version "0.1.1-alpha.9"
+  resolved "https://registry.yarnpkg.com/@expo/ui/-/ui-0.1.1-alpha.9.tgz#d1fb18c01f084313b4169731f57062a8cb95b1ee"
+  integrity sha512-Lg7gLImOZxnUyDk55DGhjhsGappImoU6SeVTrlAHapwT0kwLza3FO0LYTBoMfPcHyc2fC+1E0gpswRZuRnrySA==
+
 "@expo/vector-icons@^14.0.0", "@expo/vector-icons@^14.1.0":
   version "14.1.0"
   resolved "https://registry.yarnpkg.com/@expo/vector-icons/-/vector-icons-14.1.0.tgz#d3dddad8b6ea60502e0fe5485b86751827606ce4"

@@ -1,9 +1,10 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { GlobalStyles } from '@/styles/GlobalStyles';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput } from 'react-native';
 
 export default function SignUpScreen() {
   const [username, setUsername] = useState('');
@@ -41,18 +42,18 @@ export default function SignUpScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Create Account</ThemedText>
-          <ThemedText style={styles.subtitle}>Join CueView and start tracking your shows</ThemedText>
+    <ScrollView style={GlobalStyles.container}>
+      <ThemedView style={GlobalStyles.content}>
+        <ThemedView style={GlobalStyles.header}>
+          <ThemedText type="title" style={GlobalStyles.title}>Create Account</ThemedText>
+          <ThemedText style={GlobalStyles.subtitle}>Join CueView and start tracking your shows</ThemedText>
         </ThemedView>
 
-        <ThemedView style={styles.form}>
-          <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Username</ThemedText>
+        <ThemedView style={GlobalStyles.form}>
+          <ThemedView style={GlobalStyles.inputGroup}>
+            <ThemedText style={GlobalStyles.label}>Username</ThemedText>
             <TextInput
-              style={styles.input}
+              style={GlobalStyles.input}
               value={username}
               onChangeText={setUsername}
               placeholder="Choose a username"
@@ -61,10 +62,10 @@ export default function SignUpScreen() {
             />
           </ThemedView>
 
-          <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Email</ThemedText>
+          <ThemedView style={GlobalStyles.inputGroup}>
+            <ThemedText style={GlobalStyles.label}>Email</ThemedText>
             <TextInput
-              style={styles.input}
+              style={GlobalStyles.input}
               value={email}
               onChangeText={setEmail}
               placeholder="Enter your email"
@@ -74,10 +75,10 @@ export default function SignUpScreen() {
             />
           </ThemedView>
 
-          <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Password</ThemedText>
+          <ThemedView style={GlobalStyles.inputGroup}>
+            <ThemedText style={GlobalStyles.label}>Password</ThemedText>
             <TextInput
-              style={styles.input}
+              style={GlobalStyles.input}
               value={password}
               onChangeText={setPassword}
               placeholder="Create a password (min 6 characters)"
@@ -86,10 +87,10 @@ export default function SignUpScreen() {
             />
           </ThemedView>
 
-          <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Confirm Password</ThemedText>
+          <ThemedView style={GlobalStyles.inputGroup}>
+            <ThemedText style={GlobalStyles.label}>Confirm Password</ThemedText>
             <TextInput
-              style={styles.input}
+              style={GlobalStyles.input}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
               placeholder="Confirm your password"
@@ -98,123 +99,42 @@ export default function SignUpScreen() {
             />
           </ThemedView>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.primaryButton, isLoading && styles.disabledButton]}
+          <Pressable 
+            style={({ pressed }) => [
+              GlobalStyles.primaryButton,
+              pressed && GlobalStyles.buttonPressed,
+              isLoading && GlobalStyles.disabledButton
+            ]}
             onPress={handleSignUp}
             disabled={isLoading}
           >
-            <ThemedText style={styles.primaryButtonText}>
+            <Text style={GlobalStyles.primaryButtonText}>
               {isLoading ? 'Creating Account...' : 'Create Account'}
-            </ThemedText>
-          </TouchableOpacity>
+            </Text>
+          </Pressable>
 
-          <ThemedView style={styles.divider}>
-            <ThemedText style={styles.dividerText}>Already have an account?</ThemedText>
+          <ThemedView style={GlobalStyles.divider}>
+            <ThemedText style={GlobalStyles.dividerText}>Already have an account?</ThemedText>
           </ThemedView>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.secondaryButton]}
+          <Pressable 
+            style={({ pressed }) => [
+              GlobalStyles.secondaryButton,
+              pressed && GlobalStyles.buttonPressed
+            ]}
             onPress={() => router.replace('/(auth)/sign-in')}
           >
-            <ThemedText style={styles.secondaryButtonText}>Sign In</ThemedText>
-          </TouchableOpacity>
+            <Text style={GlobalStyles.secondaryButtonText}>Sign In</Text>
+          </Pressable>
         </ThemedView>
 
-        <TouchableOpacity 
-          style={styles.backButton}
+        <Pressable 
+          style={GlobalStyles.backButton}
           onPress={() => router.back()}
         >
-          <ThemedText style={styles.backText}>← Back</ThemedText>
-        </TouchableOpacity>
+          <ThemedText style={GlobalStyles.backText}>← Back</ThemedText>
+        </Pressable>
       </ThemedView>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 80,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.7,
-  },
-  form: {
-    gap: 20,
-  },
-  inputGroup: {
-    gap: 8,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    backgroundColor: 'white',
-  },
-  button: {
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-  },
-  primaryButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  secondaryButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-  secondaryButtonText: {
-    color: '#007AFF',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  divider: {
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  dividerText: {
-    fontSize: 14,
-    opacity: 0.6,
-  },
-  backButton: {
-    marginTop: 20,
-    alignSelf: 'flex-start',
-  },
-  backText: {
-    color: '#007AFF',
-    fontSize: 16,
-  },
-});

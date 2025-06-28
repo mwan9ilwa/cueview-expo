@@ -27,4 +27,7 @@ export const Colors = {
     card: '#1f2023',
     border: '#2a2d30',
   },
+  // Tab bar colors (theme-independent)
+  tabActive: '#007AFF',
+  tabInactive: '#8E8E93',
 };

@@ -6,12 +6,12 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { tmdbService, TMDbShow } from '@/services/tmdb';
+import { GlobalStyles } from '@/styles/GlobalStyles';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     FlatList,
     Platform,
-    StyleSheet,
     TextInput,
     TouchableOpacity,
     View,
@@ -164,21 +164,21 @@ export default function DiscoverScreen() {
     }
 
     return (
-      <View style={styles.searchSection}>
-        <View style={styles.searchHeader}>
-          <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+      <View style={GlobalStyles.searchSection}>
+        <View style={GlobalStyles.searchHeader}>
+          <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
             Search Results ({shows.length})
           </ThemedText>
           <TouchableOpacity onPress={clearSearch}>
-            <ThemedText style={styles.clearButton}>Clear</ThemedText>
+            <ThemedText style={GlobalStyles.clearButton}>Clear</ThemedText>
           </TouchableOpacity>
         </View>
         {rows.map((row, rowIndex) => (
-          <View key={rowIndex} style={styles.searchGrid}>
+          <View key={rowIndex} style={GlobalStyles.searchGrid}>
             {row.map((show) => {
               const ShowComponent = Platform.OS === 'android' ? AndroidShowCard : ShowCard;
               return (
-                <View key={show.id} style={styles.searchGridItem}>
+                <View key={show.id} style={GlobalStyles.searchGridItem}>
                   <ShowComponent show={show} onPress={handleShowPress} />
                 </View>
               );
@@ -193,21 +193,21 @@ export default function DiscoverScreen() {
     switch (section.type) {
       case 'searching':
         return (
-          <ThemedView style={styles.searchSection}>
-            <View style={styles.searchingContainer}>
+          <ThemedView style={GlobalStyles.searchSection}>
+            <View style={GlobalStyles.searchingContainer}>
               <IconSymbol name="magnifyingglass" size={16} color="#999" />
-              <ThemedText style={styles.searchingText}>Searching...</ThemedText>
+              <ThemedText style={GlobalStyles.searchingText}>Searching...</ThemedText>
             </View>
           </ThemedView>
         );
 
       case 'no_results':
         return (
-          <ThemedView style={styles.searchSection}>
-            <ThemedText style={styles.noResultsText}>
+          <ThemedView style={GlobalStyles.searchSection}>
+            <ThemedText style={GlobalStyles.noResultsText}>
               No shows found for &quot;{section.query}&quot;
             </ThemedText>
-            <ThemedText style={styles.noResultsHint}>
+            <ThemedText style={GlobalStyles.noResultsHint}>
               Try different keywords or browse trending shows below
             </ThemedText>
           </ThemedView>
@@ -219,20 +219,20 @@ export default function DiscoverScreen() {
       case 'horizontal_list':
         if (isLoading) {
           return (
-            <View style={styles.horizontalSection}>
-              <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+            <View style={GlobalStyles.horizontalSection}>
+              <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
                 {section.title}
               </ThemedText>
-              <View style={styles.loadingContainer}>
+              <View style={GlobalStyles.loadingContainer}>
                 <IconSymbol name="clock.fill" size={16} color="#999" />
-                <ThemedText style={styles.loadingText}>Loading shows...</ThemedText>
+                <ThemedText style={GlobalStyles.loadingText}>Loading shows...</ThemedText>
               </View>
             </View>
           );
         }
         return (
-          <View style={styles.horizontalSection}>
-            <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+          <View style={GlobalStyles.horizontalSection}>
+            <ThemedText type="defaultSemiBold" style={GlobalStyles.sectionTitle}>
               {section.title}
             </ThemedText>
             <FlatList
@@ -243,7 +243,7 @@ export default function DiscoverScreen() {
               keyExtractor={(item) => `${section.title}-${item.id}`}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.horizontalList}
+              contentContainerStyle={GlobalStyles.horizontalList}
             />
           </View>
         );
@@ -254,29 +254,29 @@ export default function DiscoverScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={styles.titleSection}>
+    <ThemedView style={GlobalStyles.container}>
+      <ThemedView style={GlobalStyles.header}>
+        <View style={GlobalStyles.headerContent}>
+          <View style={GlobalStyles.titleSection}>
             <ThemedText type="title">Discover</ThemedText>
-            <ThemedText style={styles.subtitle}>
+            <ThemedText style={GlobalStyles.subtitle}>
               Find your next favorite show
             </ThemedText>
           </View>
           
           {!isAuthenticated && (
-            <View style={styles.authButtons}>
+            <View style={GlobalStyles.authButtons}>
               <TouchableOpacity 
-                style={[styles.authButton, styles.signInButton]} 
+                style={[GlobalStyles.authButton, GlobalStyles.signInButton]} 
                 onPress={handleSignIn}
               >
-                <ThemedText style={styles.signInButtonText}>Sign In</ThemedText>
+                <ThemedText style={GlobalStyles.signInButtonText}>Sign In</ThemedText>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.authButton, styles.signUpButton]} 
+                style={[GlobalStyles.authButton, GlobalStyles.signUpButton]} 
                 onPress={handleSignUp}
               >
-                <ThemedText style={styles.signUpButtonText}>Sign Up</ThemedText>
+                <ThemedText style={GlobalStyles.signUpButtonText}>Sign Up</ThemedText>
               </TouchableOpacity>
             </View>
           )}
@@ -284,15 +284,15 @@ export default function DiscoverScreen() {
       </ThemedView>
 
       {/* Search Bar */}
-      <ThemedView style={styles.searchContainer}>
+      <ThemedView style={GlobalStyles.searchContainer}>
         <View style={[
-          styles.searchInputContainer,
+          GlobalStyles.searchInputContainer,
           { backgroundColor: colorScheme === 'dark' ? '#333' : '#f5f5f5' }
         ]}>
           <IconSymbol name="magnifyingglass" size={16} color={colorScheme === 'dark' ? '#999' : '#666'} />
           <TextInput
             style={[
-              styles.searchInput,
+              GlobalStyles.searchInput,
               { color: colorScheme === 'dark' ? '#fff' : '#000' }
             ]}
             placeholder="Search for TV shows..."
@@ -304,7 +304,7 @@ export default function DiscoverScreen() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={clearSearch}>
-              <ThemedText style={styles.clearIcon}>✕</ThemedText>
+              <ThemedText style={GlobalStyles.clearIcon}>✕</ThemedText>
             </TouchableOpacity>
           )}
         </View>
@@ -315,197 +315,11 @@ export default function DiscoverScreen() {
         data={createSections()}
         renderItem={renderSectionItem}
         keyExtractor={(item, index) => `${item.type}-${index}`}
-        style={styles.content}
+        style={GlobalStyles.content}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.flatListContent}
+        contentContainerStyle={GlobalStyles.flatListContent}
       />
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: 16,
-    paddingTop: 60,
-    gap: 4,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  titleSection: {
-    flex: 1,
-  },
-  subtitle: {
-    fontSize: 16,
-    opacity: 0.7,
-  },
-  authButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'center',
-  },
-  authButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 70,
-    alignItems: 'center',
-  },
-  signInButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#007AFF',
-  },
-  signUpButton: {
-    backgroundColor: '#007AFF',
-  },
-  signInButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  signUpButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  content: {
-    flex: 1,
-  },
-  flatListContent: {
-    paddingBottom: 40,
-  },
-  section: {
-    gap: 8,
-    marginTop: 16,
-  },
-  searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-  },
-  searchInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  searchIcon: {
-    fontSize: 16,
-    opacity: 0.6,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 4,
-  },
-  clearIcon: {
-    fontSize: 16,
-    opacity: 0.6,
-    paddingHorizontal: 4,
-  },
-  searchSection: {
-    padding: 16,
-  },
-  searchingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    justifyContent: 'center',
-  },
-  searchingText: {
-    textAlign: 'center',
-    fontSize: 16,
-    opacity: 0.7,
-    marginVertical: 20,
-  },
-  noResultsText: {
-    textAlign: 'center',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  noResultsHint: {
-    textAlign: 'center',
-    fontSize: 14,
-    opacity: 0.7,
-    marginBottom: 20,
-  },
-  searchHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  clearButton: {
-    fontSize: 16,
-    color: '#007AFF',
-    fontWeight: '600',
-  },
-  searchGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 8,
-  },
-  searchGridItem: {
-    flex: 1,
-    marginHorizontal: 4,
-  },
-  horizontalSection: {
-    marginBottom: 24,
-  },
-  horizontalList: {
-    paddingHorizontal: 16,
-  },
-  loadingText: {
-    textAlign: 'center',
-    opacity: 0.6,
-    marginHorizontal: 16,
-    marginBottom: 20,
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    justifyContent: 'center',
-    marginHorizontal: 16,
-    marginBottom: 20,
-  },
-  comingSoonSection: {
-    margin: 16,
-    padding: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  featureList: {
-    gap: 8,
-    alignItems: 'center',
-    marginTop: 12,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  featureText: {
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  bottomPadding: {
-    height: 40,
-  },
-});

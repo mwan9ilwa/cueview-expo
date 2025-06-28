@@ -1,9 +1,10 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/contexts/SimpleAuthContext';
+import { GlobalStyles } from '@/styles/GlobalStyles';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput } from 'react-native';
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -32,18 +33,18 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <ThemedView style={styles.content}>
-        <ThemedView style={styles.header}>
-          <ThemedText type="title" style={styles.title}>Reset Password</ThemedText>
-          <ThemedText style={styles.subtitle}>Enter your email address and we&apos;ll send you a link to reset your password</ThemedText>
+    <ScrollView style={GlobalStyles.container}>
+      <ThemedView style={GlobalStyles.content}>
+        <ThemedView style={GlobalStyles.header}>
+          <ThemedText type="title" style={GlobalStyles.title}>Reset Password</ThemedText>
+          <ThemedText style={GlobalStyles.subtitle}>Enter your email address and we&apos;ll send you a link to reset your password</ThemedText>
         </ThemedView>
 
-        <ThemedView style={styles.form}>
-          <ThemedView style={styles.inputGroup}>
-            <ThemedText style={styles.label}>Email</ThemedText>
+        <ThemedView style={GlobalStyles.form}>
+          <ThemedView style={GlobalStyles.inputGroup}>
+            <ThemedText style={GlobalStyles.label}>Email</ThemedText>
             <TextInput
-              style={styles.input}
+              style={GlobalStyles.input}
               value={email}
               onChangeText={setEmail}
               placeholder="Enter your email"
@@ -53,100 +54,27 @@ export default function ForgotPasswordScreen() {
             />
           </ThemedView>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.primaryButton, isLoading && styles.disabledButton]}
+          <Pressable 
+            style={({ pressed }) => [
+              GlobalStyles.primaryButton,
+              pressed && GlobalStyles.buttonPressed,
+              isLoading && GlobalStyles.disabledButton
+            ]}
             onPress={handleResetPassword}
             disabled={isLoading}
           >
-            <ThemedText style={[styles.buttonText, styles.primaryButtonText]}>
+            <Text style={GlobalStyles.primaryButtonText}>
               {isLoading ? 'Sending...' : 'Send Reset Email'}
-            </ThemedText>
-          </TouchableOpacity>
+            </Text>
+          </Pressable>
         </ThemedView>
 
-        <ThemedView style={styles.footer}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <ThemedText style={styles.linkText}>Back to Sign In</ThemedText>
-          </TouchableOpacity>
+        <ThemedView style={GlobalStyles.footer}>
+          <Pressable onPress={() => router.back()}>
+            <ThemedText style={GlobalStyles.linkText}>Back to Sign In</ThemedText>
+          </Pressable>
         </ThemedView>
       </ThemedView>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 60,
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#888',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  form: {
-    marginBottom: 40,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    color: '#fff',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  input: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 15,
-    fontSize: 16,
-    color: '#fff',
-    borderWidth: 1,
-    borderColor: '#333',
-  },
-  button: {
-    borderRadius: 8,
-    padding: 15,
-    alignItems: 'center',
-    marginVertical: 8,
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-  },
-  disabledButton: {
-    backgroundColor: '#333',
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  primaryButtonText: {
-    color: '#fff',
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  linkText: {
-    color: '#007AFF',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-});

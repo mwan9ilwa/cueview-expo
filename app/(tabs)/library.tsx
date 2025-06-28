@@ -6,11 +6,12 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useAuth } from '@/contexts/SimpleAuthContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { getShowStatusInfo, TMDbShow } from '@/services/tmdb';
+import { GlobalStyles } from '@/styles/GlobalStyles';
 import { UserShowWithDetails } from '@/types';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Alert, RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 
 type LibraryTab = 'watching' | 'want-to-watch' | 'watched';
@@ -26,13 +27,10 @@ export default function LibraryScreen() {
     error, 
     refreshLibrary,
     updateShowProgress,
-    syncToCloud,
-    syncFromCloud,
   } = useUserLibrary();
   
   const [activeTab, setActiveTab] = useState<LibraryTab>('watching');
   const [refreshing, setRefreshing] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [showFilters, setShowFilters] = useState(false);
@@ -41,32 +39,6 @@ export default function LibraryScreen() {
     setRefreshing(true);
     await refreshLibrary();
     setRefreshing(false);
-  };
-
-  const handleSyncToCloud = async () => {
-    setSyncing(true);
-    try {
-      await syncToCloud();
-      Alert.alert('Success', 'Your library has been synced to the cloud!');
-    } catch (error) {
-      console.error('Sync to cloud failed:', error);
-      Alert.alert('Error', 'Failed to sync to cloud. Check your internet connection.');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleSyncFromCloud = async () => {
-    setSyncing(true);
-    try {
-      await syncFromCloud();
-      Alert.alert('Success', 'Your library has been synced from the cloud!');
-    } catch (error) {
-      console.error('Sync from cloud failed:', error);
-      Alert.alert('Error', 'Failed to sync from cloud. Check your internet connection.');
-    } finally {
-      setSyncing(false);
-    }
   };
 
   const handleShowPress = (showIdOrShow: number | TMDbShow) => {
@@ -248,12 +220,12 @@ export default function LibraryScreen() {
     };
 
     return (
-      <ThemedView style={styles.emptyContainer}>
-        {/* <ThemedText style={styles.emptyText}>📺</ThemedText> */}
-        <ThemedText style={styles.emptyMessage}>
+      <ThemedView style={GlobalStyles.emptyContainer}>
+        {/* <ThemedText style={GlobalStyles.emptyText}>📺</ThemedText> */}
+        <ThemedText style={GlobalStyles.emptyMessage}>
           {messages[status]}
         </ThemedText>
-        <ThemedText style={styles.emptyHint}>
+        <ThemedText style={GlobalStyles.emptyHint}>
           Browse trending shows in the Home tab to get started!
         </ThemedText>
       </ThemedView>
@@ -270,11 +242,11 @@ export default function LibraryScreen() {
     if (filteredShows.length === 0) {
       if (searchQuery.trim()) {
         return (
-          <ThemedView style={styles.emptyContainer}>
-            <ThemedText style={styles.emptyMessage}>
+          <ThemedView style={GlobalStyles.emptyContainer}>
+            <ThemedText style={GlobalStyles.emptyMessage}>
               No shows found matching &quot;{searchQuery}&quot;
             </ThemedText>
-            <ThemedText style={styles.emptyHint}>
+            <ThemedText style={GlobalStyles.emptyHint}>
               Try adjusting your search terms or browse all shows.
             </ThemedText>
           </ThemedView>
@@ -290,22 +262,22 @@ export default function LibraryScreen() {
       if (shows.length === 0) return null;
       
       return (
-        <View style={styles.showGroup}>
+        <View style={GlobalStyles.showGroup}>
           {title && (
-            <View style={styles.groupHeader}>
-              <View style={[styles.groupIcon, { backgroundColor: color + '20' }]}>
+            <View style={GlobalStyles.groupHeader}>
+              <View style={[GlobalStyles.groupIcon, { backgroundColor: color + '20' }]}>
                 <IconSymbol name={iconName as any} size={16} color={color} />
               </View>
-              <ThemedText type="defaultSemiBold" style={styles.groupTitle}>
+              <ThemedText type="defaultSemiBold" style={GlobalStyles.groupTitle}>
                 {title}
               </ThemedText>
-              <ThemedText style={styles.groupCount}>
+              <ThemedText style={GlobalStyles.groupCount}>
                 {shows.length}
               </ThemedText>
             </View>
           )}
           
-          <View style={styles.showsList}>
+          <View style={GlobalStyles.showsList}>
             {shows.map((userShow) => (
               <ShowCard
                 key={userShow.id}
@@ -325,12 +297,12 @@ export default function LibraryScreen() {
 
     return (
       <ScrollView
-        style={styles.showsContainer}
+        style={GlobalStyles.showsContainer}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <ThemedView style={styles.showsList}>
+        <ThemedView style={GlobalStyles.showsList}>
           {/* Active Shows - no title, just shows */}
           {renderShowGroup(null, groupedShows.active, '#34C759', 'tv.fill')}
           
@@ -352,19 +324,19 @@ export default function LibraryScreen() {
 
   if (!user) {
     return (
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.header}>
+      <ThemedView style={GlobalStyles.container}>
+        <ThemedView style={GlobalStyles.header}>
           <ThemedText type="title">My Shows</ThemedText>
         </ThemedView>
         
-        <ThemedView style={styles.signInPrompt}>
-          <View style={styles.signInIconContainer}>
+        <ThemedView style={GlobalStyles.signInPrompt}>
+          <View style={GlobalStyles.signInIconContainer}>
             <IconSymbol name="tv.fill" size={48} color="#999" />
           </View>
-          <ThemedText type="subtitle" style={styles.signInTitle}>
+          <ThemedText type="subtitle" style={GlobalStyles.signInTitle}>
             Sign In Required
           </ThemedText>
-          <ThemedText style={styles.signInMessage}>
+          <ThemedText style={GlobalStyles.signInMessage}>
             Sign in to create your personal show library and track your watching progress.
           </ThemedText>
         </ThemedView>
@@ -373,55 +345,18 @@ export default function LibraryScreen() {
   }
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedView style={styles.header}>
-        <View style={styles.headerContent}>
+    <ThemedView style={GlobalStyles.container}>
+      <ThemedView style={GlobalStyles.header}>
+        <View style={GlobalStyles.headerContent}>
           <View>
             <ThemedText type="title">My Shows</ThemedText>
-          </View>
-          
-          {/* Sync Buttons */}
-          <View style={styles.syncButtons}>
-            <TouchableOpacity
-              style={[styles.syncButton, syncing && styles.syncButtonDisabled]}
-              onPress={handleSyncToCloud}
-              disabled={syncing}
-            >
-              <View style={styles.syncButtonContent}>
-                {syncing ? (
-                  <IconSymbol name="clock.fill" size={14} color="#007AFF" />
-                ) : (
-                  <>
-                    <IconSymbol name="icloud.fill" size={12} color="#007AFF" />
-                    <IconSymbol name="arrow.up" size={10} color="#007AFF" />
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.syncButton, syncing && styles.syncButtonDisabled]}
-              onPress={handleSyncFromCloud}
-              disabled={syncing}
-            >
-              <View style={styles.syncButtonContent}>
-                {syncing ? (
-                  <IconSymbol name="clock.fill" size={14} color="#007AFF" />
-                ) : (
-                  <>
-                    <IconSymbol name="icloud.fill" size={12} color="#007AFF" />
-                    <IconSymbol name="arrow.down" size={10} color="#007AFF" />
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
           </View>
         </View>
         
         {error && (
-          <View style={styles.errorContainer}>
+          <View style={GlobalStyles.errorContainer}>
             <IconSymbol name="exclamationmark.triangle.fill" size={14} color="#FF3B30" />
-            <ThemedText style={styles.errorText}>
+            <ThemedText style={GlobalStyles.errorText}>
               {error}
             </ThemedText>
           </View>
@@ -429,7 +364,7 @@ export default function LibraryScreen() {
       </ThemedView>
 
       {/* Segmented Control */}
-      <ThemedView style={styles.segmentedContainer}>
+      <ThemedView style={GlobalStyles.segmentedContainer}>
         <SegmentedControl
           values={segmentedControlValues}
           selectedIndex={getTabIndex(activeTab)}
@@ -437,7 +372,7 @@ export default function LibraryScreen() {
             const selectedIndex = event.nativeEvent.selectedSegmentIndex;
             setActiveTab(getTabFromIndex(selectedIndex));
           }}
-          style={styles.segmentedControl}
+          style={GlobalStyles.segmentedControl}
           tintColor={tabs[getTabIndex(activeTab)].color}
           backgroundColor="#f8f9fa"
           fontStyle={{ fontSize: 14, fontWeight: '600' }}
@@ -446,11 +381,11 @@ export default function LibraryScreen() {
       </ThemedView>
 
       {/* Search and Filter Controls */}
-      <ThemedView style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
-          <IconSymbol name="magnifyingglass" size={16} color="#999" style={styles.searchIcon} />
+      <ThemedView style={GlobalStyles.searchContainer}>
+        <View style={GlobalStyles.searchInputContainer}>
+          <IconSymbol name="magnifyingglass" size={16} color="#999" style={GlobalStyles.searchIcon} />
           <TextInput
-            style={styles.searchInput}
+            style={GlobalStyles.searchInput}
             placeholder="Search shows..."
             placeholderTextColor="#999"
             value={searchQuery}
@@ -460,7 +395,7 @@ export default function LibraryScreen() {
         </View>
         
         <TouchableOpacity
-          style={[styles.filterButton, showFilters && styles.filterButtonActive]}
+          style={[GlobalStyles.filterButton, showFilters && GlobalStyles.filterButtonActive]}
           onPress={() => setShowFilters(!showFilters)}
         >
           <IconSymbol name="slider.horizontal.3" size={16} color={showFilters ? '#007AFF' : '#666'} />
@@ -519,370 +454,137 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: 20,
-    paddingTop: 60,
-    gap: 8,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  syncButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  syncButton: {
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 122, 255, 0.3)',
-  },
-  syncButtonDisabled: {
-    opacity: 0.5,
-  },
-  syncButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  syncButtonText: {
-    fontSize: 16,
-    color: '#007AFF',
-  },
-  syncHint: {
-    fontSize: 12,
-    opacity: 0.6,
-    textAlign: 'center',
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    padding: 8,
-    borderRadius: 6,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#FF3B30',
-    flex: 1,
-  },
-  subtitle: {
-    opacity: 0.8,
-    fontSize: 16,
-  },
-  content: {
-    flex: 1,
-  },
-  tabContainer: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
-  },
-  tabScrollContainer: {
-    paddingHorizontal: 16,
-  },
-  tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  tabText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  activeTabText: {
-    color: 'white',
-  },
-  tabCount: {
-    fontSize: 12,
-    opacity: 0.7,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  activeTabCount: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    color: 'white',
-    opacity: 1,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  emptyMessage: {
-    textAlign: 'center',
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 8,
-    opacity: 0.8,
-  },
-  emptyHint: {
-    textAlign: 'center',
-    fontSize: 14,
-    opacity: 0.6,
-  },
-  showsContainer: {
-    padding: 0,
-    
-  },
-  signInPrompt: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  signInText: {
-    fontSize: 48,
-    marginBottom: 16,
-  },
-  signInTitle: {
-    marginBottom: 8,
-  },
-  signInMessage: {
-    textAlign: 'center',
-    opacity: 0.8,
-    lineHeight: 20,
-  },
-  statsContainer: {
-    padding: 16,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.1)',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: 8,
-  },
-  statItem: {
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  statItemWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  statText: {
-    fontSize: 14,
-    opacity: 0.8,
-  },
-  signInIconContainer: {
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  showsList: {
-    paddingHorizontal: 5,
-    gap: 10,
-    // backgroundColor: 'rgba(0,0,0,0.02)',
-  },
-  showsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  statsText: {
-    fontSize: 16,
-    marginBottom: 16,
-    opacity: 0.8,
-  },
-  showItem: {
-    marginBottom: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.03)',
-    overflow: 'hidden',
-  },
-  showItemContent: {
-    padding: 16,
-    gap: 4,
-  },
-  showStatus: {
-    fontSize: 14,
-    opacity: 0.7,
-    textTransform: 'capitalize',
-  },
-  showDate: {
-    fontSize: 12,
-    opacity: 0.6,
-  },
-  showRating: {
-    fontSize: 14,
-  },
-  showNotes: {
-    fontSize: 14,
-    fontStyle: 'italic',
-    opacity: 0.8,
-  },
-  showGroup: {
-    marginBottom: 24,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    borderRadius: 12,
-    gap: 12,
-  },
-  groupIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  groupIconText: {
-    fontSize: 16,
-  },
-  groupTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  groupCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    color: '#666',
-  },
-  segmentedContainer: {
-    backgroundColor: '#f8f9fa',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    alignItems: 'center',
-    gap: 8,
-  },
-  segmentedControl: {
-    width: '100%',
-    height: 32,
-  },
-  countIndicator: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    backgroundColor: 'rgba(0,0,0,0.05)',
-    borderRadius: 12,
-  },
-  countText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 12,
-    backgroundColor: '#f8f9fa',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  searchInputContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  searchIcon: {
-    opacity: 0.6,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  filterButton: {
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
-  },
-  filterButtonActive: {
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
-    borderColor: '#007AFF',
-  },
   filterPanel: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F8F9FA',
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-    paddingVertical: 12,
+    borderBottomColor: '#E0E0E0',
   },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    gap: 16,
   },
   filterLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#333',
-    minWidth: 60,
+    color: '#000000',
+    marginRight: 16,
+    minWidth: 80,
   },
   sortOptions: {
     flex: 1,
   },
   sortOptionsContent: {
-    paddingRight: 20,
-    gap: 8,
+    paddingRight: 16,
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.1)',
+    borderColor: '#E0E0E0',
   },
   sortOptionActive: {
-    backgroundColor: 'rgba(0, 122, 255, 0.1)',
+    backgroundColor: '#E3F2FD',
     borderColor: '#007AFF',
   },
   sortOptionText: {
     fontSize: 14,
-    color: '#666',
-    fontWeight: '500',
+    color: '#666666',
+    marginLeft: 6,
   },
   sortOptionTextActive: {
     color: '#007AFF',
     fontWeight: '600',
+  },
+  content: {
+    flex: 1,
+  },
+  // Profile screen styles that might be missing
+  container: {
+    flex: 1,
+  },
+  signInContainer: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  avatarContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  signInTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  signInSubtitle: {
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  header: {
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginTop: 12,
+  },
+  email: {
+    fontSize: 16,
+    color: '#666666',
+    marginTop: 4,
+  },
+  joinDate: {
+    fontSize: 14,
+    color: '#999999',
+    marginTop: 4,
+  },
+  section: {
+    marginTop: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  settingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  settingTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  settingSubtitle: {
+    fontSize: 14,
+    color: '#666666',
   },
 });

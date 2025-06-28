@@ -7,10 +7,8 @@ import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { isAuthenticated, isLoading, user } = useAuth();
 
   useEffect(() => {
@@ -23,7 +21,8 @@ export default function TabLayout() {
     return (
       <Tabs
         screenOptions={{
-          tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+          tabBarActiveTintColor: Colors.tabActive,
+          tabBarInactiveTintColor: Colors.tabInactive,
           headerShown: false,
           tabBarButton: HapticTab,
           tabBarBackground: TabBarBackground,
@@ -48,6 +47,12 @@ export default function TabLayout() {
           }}
         />
         <Tabs.Screen
+          name="calendar"
+          options={{
+            href: null, // Hide this tab for unauthenticated users
+          }}
+        />
+        <Tabs.Screen
           name="library"
           options={{
             href: null, // Hide this tab for unauthenticated users
@@ -66,7 +71,8 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors.tabActive,
+        tabBarInactiveTintColor: Colors.tabInactive,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
@@ -97,6 +103,13 @@ export default function TabLayout() {
         options={{
           title: 'Discover',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="binoculars.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Calendar',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
         }}
       />
       <Tabs.Screen
