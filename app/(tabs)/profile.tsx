@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useUserLibrary } from '@/hooks/useUserLibrary';
 import { notificationService } from '@/services/notifications';
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Switch, TouchableOpacity, View } from 'react-native';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -169,7 +169,9 @@ const styles = StyleSheet.create({
   },
   signInContainer: {
     alignItems: 'center',
-    padding: 40,
+    paddingTop: Platform.OS === 'ios' ? 80 : 60, // Platform-specific top padding
+    paddingHorizontal: 40,
+    paddingBottom: 40,
   },
   avatarContainer: {
     width: 80,
@@ -193,9 +195,9 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40, // Platform-specific top padding
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   name: {
     fontSize: 24,
@@ -225,8 +227,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
   },
   settingLeft: {
     flexDirection: 'row',
